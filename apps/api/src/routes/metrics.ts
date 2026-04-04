@@ -23,9 +23,9 @@ router.get("/metrics/system", async (_req, res) => {
     },
     memory: {
       total: mem.total,
-      used: mem.used,
-      free: mem.free,
-      usagePercent: Math.round((mem.used / mem.total) * 10000) / 100,
+      used: mem.active,
+      free: mem.available,
+      usagePercent: Math.round((mem.active / mem.total) * 10000) / 100,
     },
     disk: {
       total: primaryDisk.size,

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -65,16 +66,41 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+type SortDirection = "asc" | "desc" | null;
+
+interface TableHeadProps extends React.ComponentProps<"th"> {
+  sortable?: boolean;
+  sortDirection?: SortDirection;
+  onSort?: () => void;
+}
+
+function TableHead({ className, sortable, sortDirection, onSort, children, ...props }: TableHeadProps) {
   return (
     <th
       data-slot="table-head"
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        sortable && "cursor-pointer select-none hover:text-foreground/80",
         className
       )}
+      onClick={sortable ? onSort : undefined}
       {...props}
-    />
+    >
+      {sortable ? (
+        <span className="inline-flex items-center gap-1">
+          {children}
+          {sortDirection === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+          ) : sortDirection === "desc" ? (
+            <ArrowDown className="h-3.5 w-3.5 text-foreground" />
+          ) : (
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+          )}
+        </span>
+      ) : (
+        children
+      )}
+    </th>
   )
 }
 
@@ -114,3 +140,5 @@ export {
   TableCell,
   TableCaption,
 }
+
+export type { SortDirection }

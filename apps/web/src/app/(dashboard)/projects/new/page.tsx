@@ -104,13 +104,11 @@ export default function NewProjectPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/projects">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button variant="ghost" size="icon" render={<Link href="/projects" />}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h3 className="text-sm font-medium">New Project</h3>
+          <h3 className="text-base font-semibold">New Project</h3>
           <p className="text-xs text-muted-foreground">Step {step} of 4</p>
         </div>
       </div>
@@ -118,7 +116,7 @@ export default function NewProjectPage() {
       {/* Step 1: Domain & Name */}
       {step === 1 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">Domain & Name</h3>
+          <h3 className="text-lg font-semibold">Domain & Name</h3>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Project Name</Label>
@@ -154,7 +152,7 @@ export default function NewProjectPage() {
       {/* Step 2: Cloudflare Credentials */}
       {step === 2 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">Cloudflare Credentials</h3>
+          <h3 className="text-lg font-semibold">Cloudflare Credentials</h3>
           <p className="text-sm text-muted-foreground">
             Provide a Cloudflare API token with DNS edit permissions for {domain}.
           </p>
@@ -224,7 +222,7 @@ export default function NewProjectPage() {
       {/* Step 3: Creating */}
       {step === 3 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">
+          <h3 className="text-lg font-semibold">
             {error ? "Creation Failed" : "Creating Project..."}
           </h3>
           {error ? (
@@ -262,7 +260,7 @@ export default function NewProjectPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Check className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-lg font-medium">Project Created</h3>
+            <h3 className="text-lg font-semibold">Project Created</h3>
           </div>
 
           <Card>
@@ -307,11 +305,11 @@ export default function NewProjectPage() {
           )}
 
           <div className="flex gap-3">
-            <Button variant="outline" asChild>
-              <Link href="/projects">Go to Projects</Link>
+            <Button variant="outline" render={<Link href="/projects" />}>
+              Go to Projects
             </Button>
-            <Button asChild>
-              <Link href="/deployments/new">Create Deployment</Link>
+            <Button render={<Link href="/deployments/new" />}>
+              Create Deployment
             </Button>
           </div>
         </div>

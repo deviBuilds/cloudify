@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSort } from "@/lib/use-sort";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -78,16 +79,23 @@ export default function DeploymentDetailPage({
   const [copied, setCopied] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [metricsLoaded, setMetricsLoaded] = useState(false);
 
   const startAction = useAction(api.actions.lifecycleActions.start);
   const stopAction = useAction(api.actions.lifecycleActions.stop);
   const restartAction = useAction(api.actions.lifecycleActions.restart);
 
+  const { sorted: sortedContainers, toggleSort: toggleContainerSort, getSortDirection: getContainerSortDir } = useSort(containers);
+  const activeDnsRecords = dnsRecords?.filter((r) => !r.deletedAt);
+  const { sorted: sortedDns, toggleSort: toggleDnsSort, getSortDirection: getDnsSortDir } = useSort(activeDnsRecords);
+
   const fetchContainers = useCallback(async () => {
     if (!deployment) return;
     try {
+      const prefix = deployment.containerPrefix || deployment.name;
       const res = await fetch(
-        `/api/proxy/infra/containers?prefix=${deployment.name}`
+        `/api/proxy/infra/containers?prefix=${encodeURIComponent(prefix)}`
       );
       if (res.ok) {
         setContainers(await res.json());
@@ -100,12 +108,14 @@ export default function DeploymentDetailPage({
   const fetchMetrics = useCallback(async () => {
     if (!deployment) return;
     try {
+      const prefix = deployment.containerPrefix || deployment.name;
       const res = await fetch("/api/proxy/infra/metrics/containers");
       if (res.ok) {
         const all = (await res.json()) as ContainerMetrics[];
         setMetrics(
-          all.filter((m) => m.name.startsWith(deployment.name))
+          all.filter((m) => m.name.startsWith(prefix))
         );
+        setMetricsLoaded(true);
       }
     } catch {
       // Infra agent may not be reachable
@@ -140,6 +150,13 @@ export default function DeploymentDetailPage({
       setSelectedContainer(backend?.id || containers[0].id);
     }
   }, [containers, selectedContainer]);
+
+  useEffect(() => {
+    if (activeTab !== "metrics") return;
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 5000);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchMetrics]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -182,14 +199,12 @@ export default function DeploymentDetailPage({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/deployments">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button variant="ghost" size="icon" render={<Link href="/deployments" />}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-medium">
+            <h2 className="text-lg font-semibold">
               {deployment.name}
             </h2>
             <div className="flex items-center gap-1.5">
@@ -208,7 +223,7 @@ export default function DeploymentDetailPage({
             </div>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="outline" className="text-[10px] font-normal">
+            <Badge variant="outline" size="sm">
               {deployment.serviceType}
             </Badge>
             <span className="text-xs text-muted-foreground">
@@ -265,7 +280,7 @@ export default function DeploymentDetailPage({
         </div>
       </div>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
         <TabsList variant="line">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="containers">Containers</TabsTrigger>
@@ -384,20 +399,20 @@ export default function DeploymentDetailPage({
               Refresh
             </Button>
           </div>
-          {containers.length > 0 ? (
+          {sortedContainers && sortedContainers.length > 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Image</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead sortable sortDirection={getContainerSortDir("name")} onSort={() => toggleContainerSort("name")}>Name</TableHead>
+                      <TableHead sortable sortDirection={getContainerSortDir("image")} onSort={() => toggleContainerSort("image")}>Image</TableHead>
+                      <TableHead sortable sortDirection={getContainerSortDir("state")} onSort={() => toggleContainerSort("state")}>State</TableHead>
+                      <TableHead sortable sortDirection={getContainerSortDir("status")} onSort={() => toggleContainerSort("status")}>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {containers.map((c) => (
+                    {sortedContainers.map((c) => (
                       <TableRow key={c.id}>
                         <TableCell className="font-mono text-xs">
                           {c.name}
@@ -456,7 +471,7 @@ export default function DeploymentDetailPage({
           </div>
           <Card>
             <CardContent className="pt-6">
-              <pre className="max-h-96 overflow-auto rounded bg-muted p-4 font-mono text-xs whitespace-pre-wrap">
+              <pre className="max-h-96 overflow-auto rounded-md bg-card p-4 font-mono text-xs whitespace-pre-wrap ring-1 ring-foreground/10">
                 {logs || "Click 'Fetch Logs' to load container logs."}
               </pre>
             </CardContent>
@@ -471,7 +486,39 @@ export default function DeploymentDetailPage({
               Refresh
             </Button>
           </div>
-          {metrics.length > 0 ? (
+          {!metricsLoaded ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-32" />
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-4 rounded" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex justify-between">
+                          <Skeleton className="h-3 w-8" />
+                          <Skeleton className="h-3 w-10" />
+                        </div>
+                        <Skeleton className="h-2 w-full rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-4 rounded" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex justify-between">
+                          <Skeleton className="h-3 w-12" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                        <Skeleton className="h-2 w-full rounded-full" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : metrics.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {metrics.map((m) => {
                 const memPercent =
@@ -540,23 +587,21 @@ export default function DeploymentDetailPage({
 
         {/* Domains Tab */}
         <TabsContent value="domains" className="space-y-4">
-          {dnsRecords && dnsRecords.length > 0 ? (
+          {sortedDns && sortedDns.length > 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Subdomain</TableHead>
-                      <TableHead>Full Domain</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Port</TableHead>
+                      <TableHead sortable sortDirection={getDnsSortDir("subdomain")} onSort={() => toggleDnsSort("subdomain")}>Subdomain</TableHead>
+                      <TableHead sortable sortDirection={getDnsSortDir("fullDomain")} onSort={() => toggleDnsSort("fullDomain")}>Full Domain</TableHead>
+                      <TableHead sortable sortDirection={getDnsSortDir("serviceRole")} onSort={() => toggleDnsSort("serviceRole")}>Role</TableHead>
+                      <TableHead sortable sortDirection={getDnsSortDir("targetPort")} onSort={() => toggleDnsSort("targetPort")}>Port</TableHead>
                       <TableHead>WebSocket</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dnsRecords
-                      .filter((r) => !r.deletedAt)
-                      .map((r) => (
+                    {sortedDns.map((r) => (
                         <TableRow key={r._id}>
                           <TableCell className="font-mono text-xs">
                             {r.subdomain}
@@ -649,7 +694,7 @@ export default function DeploymentDetailPage({
             </CardContent>
           </Card>
 
-          <Card className="border-destructive/50">
+          <Card className="ring-destructive/30">
             <CardHeader>
               <CardTitle className="text-sm text-destructive">
                 Danger Zone

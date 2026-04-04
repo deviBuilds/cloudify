@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSort } from "@/lib/use-sort";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Cpu, HardDrive, MemoryStick, Clock, Container } from "lucide-react";
 
@@ -61,6 +62,8 @@ export default function SystemPage() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [containers, setContainers] = useState<ContainerInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const { sorted: sortedContainers, toggleSort: toggleContainerSort, getSortDirection: getContainerSortDir } = useSort(containers);
 
   const fetchData = useCallback(async () => {
     try {
@@ -76,7 +79,9 @@ export default function SystemPage() {
         setContainers(await containerRes.json());
       }
       setError(null);
+      setLoaded(true);
     } catch (err) {
+      setLoaded(true);
       setError(
         err instanceof Error ? err.message : "Failed to fetch metrics"
       );
@@ -92,8 +97,8 @@ export default function SystemPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium">System</h3>
-        <p className="text-xs text-muted-foreground">
+        <h3 className="text-base font-semibold">System</h3>
+        <p className="text-sm text-muted-foreground">
           Host metrics and Docker containers
         </p>
       </div>
@@ -155,7 +160,7 @@ export default function SystemPage() {
       </div>
 
       {/* Memory & Disk details */}
-      {metrics && (
+      {metrics ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
             title="Memory"
@@ -167,6 +172,20 @@ export default function SystemPage() {
             value={`${formatBytes(metrics.disk.used)} / ${formatBytes(metrics.disk.total)}`}
             subtitle={`${formatBytes(metrics.disk.free)} free`}
           />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-16" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -182,7 +201,7 @@ export default function SystemPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {containers.length > 0 ? (
+          {!loaded ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -194,7 +213,35 @@ export default function SystemPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {containers.map((c) => (
+                {[...Array(6)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-2 w-2 rounded-full" />
+                        <Skeleton className="h-4 w-14" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : sortedContainers && sortedContainers.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead sortable sortDirection={getContainerSortDir("name")} onSort={() => toggleContainerSort("name")}>Name</TableHead>
+                  <TableHead sortable sortDirection={getContainerSortDir("image")} onSort={() => toggleContainerSort("image")}>Image</TableHead>
+                  <TableHead sortable sortDirection={getContainerSortDir("state")} onSort={() => toggleContainerSort("state")}>State</TableHead>
+                  <TableHead sortable sortDirection={getContainerSortDir("cpuPercent")} onSort={() => toggleContainerSort("cpuPercent")}>CPU</TableHead>
+                  <TableHead sortable sortDirection={getContainerSortDir("memUsage")} onSort={() => toggleContainerSort("memUsage")}>Memory</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedContainers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono text-sm">
                       {c.name}

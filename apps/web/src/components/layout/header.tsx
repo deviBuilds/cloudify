@@ -18,17 +18,18 @@ export function Header() {
 
   const title =
     routeTitles[pathname] ??
-    (pathname.startsWith("/deployments/") ? "Deployment" :
-     pathname.startsWith("/projects/") ? "Project" : "Cloudify");
+    (pathname.startsWith("/deployments/")
+      ? "Deployment"
+      : pathname.startsWith("/projects/")
+        ? "Project"
+        : "Cloudify");
 
   return (
-    <header className="flex h-12 items-center gap-3 border-b border-border px-4">
-      <SidebarTrigger className="lg:hidden" />
-      <nav className="flex items-center gap-1.5 text-sm">
-        <span className="text-muted-foreground">Cloudify</span>
-        <span className="text-muted-foreground/40">/</span>
-        <span className="font-medium">{title}</span>
-      </nav>
+    <header className="sticky top-0 z-40 flex h-12 items-center border-b border-border bg-background px-4 md:px-6">
+      <SidebarTrigger className="mr-3 lg:hidden" />
+      <div className="flex-1" />
+      <span className="text-sm font-medium text-foreground">{title}</span>
+      <div className="flex-1" />
     </header>
   );
 }

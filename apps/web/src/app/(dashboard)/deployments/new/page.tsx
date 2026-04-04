@@ -138,13 +138,11 @@ export default function NewDeploymentPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/deployments">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button variant="ghost" size="icon" render={<Link href="/deployments" />}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h3 className="text-sm font-medium">
+          <h3 className="text-base font-semibold">
             New Deployment
           </h3>
           <p className="text-xs text-muted-foreground">Step {step} of 5</p>
@@ -193,14 +191,14 @@ export default function NewDeploymentPage() {
                 {selectedProject.domain}
               </Badge>
               {!selectedProject.wildcardCertId && (
-                <Badge variant="outline" className="text-[10px] font-normal text-yellow-500">
+                <Badge variant="warning" size="sm">
                   No wildcard cert
                 </Badge>
               )}
             </div>
           )}
 
-          <h3 className="text-lg font-medium">Choose Service Type</h3>
+          <h3 className="text-lg font-semibold">Choose Service Type</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <Card
               className={`cursor-pointer transition-colors ${
@@ -258,7 +256,7 @@ export default function NewDeploymentPage() {
       {/* Step 2: Configuration */}
       {step === 2 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">Configure Deployment</h3>
+          <h3 className="text-lg font-semibold">Configure Deployment</h3>
 
           <div className="space-y-2">
             <Label htmlFor="name">Deployment Name</Label>
@@ -336,7 +334,7 @@ export default function NewDeploymentPage() {
       {/* Step 3: Review */}
       {step === 3 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">Review & Create</h3>
+          <h3 className="text-lg font-semibold">Review & Create</h3>
 
           <Card>
             <CardContent className="pt-6 space-y-4">
@@ -376,7 +374,7 @@ export default function NewDeploymentPage() {
       {/* Step 4: Progress */}
       {step === 4 && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium">
+          <h3 className="text-lg font-semibold">
             {error ? "Deployment Failed" : "Creating Deployment..."}
           </h3>
 
@@ -439,7 +437,7 @@ export default function NewDeploymentPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Check className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-lg font-medium">Deployment Created</h3>
+            <h3 className="text-lg font-semibold">Deployment Created</h3>
           </div>
 
           <Card>
@@ -494,18 +492,12 @@ export default function NewDeploymentPage() {
           </Card>
 
           <div className="flex gap-3">
-            <Button variant="outline" asChild>
-              <Link href="/deployments">Go to Deployments</Link>
+            <Button variant="outline" render={<Link href="/deployments" />}>
+              Go to Deployments
             </Button>
-            <Button asChild>
-              <a
-                href={result.domainUrls.dashboard}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open Dashboard
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </a>
+            <Button render={<a href={result.domainUrls.dashboard} target="_blank" rel="noopener noreferrer" />}>
+              Open Dashboard
+              <ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>

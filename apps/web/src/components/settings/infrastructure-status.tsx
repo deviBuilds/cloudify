@@ -54,7 +54,7 @@ export function InfrastructureStatus() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Infrastructure Status</h3>
+          <h3 className="text-base font-semibold">Infrastructure Status</h3>
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
             <RefreshCw className={`mr-2 h-4 w-4 ${testing ? "animate-spin" : ""}`} />
             Test Connectivity
@@ -76,7 +76,7 @@ export function InfrastructureStatus() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Infrastructure Status</h3>
+        <h3 className="text-base font-semibold">Infrastructure Status</h3>
         <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
           <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${testing ? "animate-spin" : ""}`} />
           Test

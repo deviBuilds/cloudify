@@ -9,7 +9,8 @@ async function proxyRequest(
   method: string
 ) {
   const infraPath = path.join("/");
-  const url = `${INFRA_AGENT_URL}/infra/${infraPath}`;
+  const queryString = request.nextUrl.search;
+  const url = `${INFRA_AGENT_URL}/infra/${infraPath}${queryString}`;
 
   try {
     const headers: Record<string, string> = {
