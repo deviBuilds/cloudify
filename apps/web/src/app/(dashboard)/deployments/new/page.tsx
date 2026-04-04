@@ -30,7 +30,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type ServiceType = "convex" | "postgres" | "spacetimedb";
 
@@ -75,15 +75,20 @@ export default function NewDeploymentPage() {
   const [copied, setCopied] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const createDeployment = useAction(api.actions.createDeployment.createDeployment);
   const projects = useQuery(api.projects.list);
 
-  // Auto-select if only one project
+  // Auto-select from query param or if only one project
   useEffect(() => {
-    if (projects && projects.length === 1 && !selectedProjectId) {
+    if (!projects || selectedProjectId) return;
+    const paramProjectId = searchParams.get("projectId");
+    if (paramProjectId && projects.some((p) => p._id === paramProjectId)) {
+      setSelectedProjectId(paramProjectId as Id<"projects">);
+    } else if (projects.length === 1) {
       setSelectedProjectId(projects[0]._id);
     }
-  }, [projects, selectedProjectId]);
+  }, [projects, selectedProjectId, searchParams]);
 
   const selectedProject = projects?.find((p) => p._id === selectedProjectId);
   const baseDomain = selectedProject?.domain ?? "";
@@ -138,7 +143,7 @@ export default function NewDeploymentPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" render={<Link href="/deployments" />}>
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

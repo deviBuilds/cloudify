@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
+  Container,
   ExternalLink,
   Globe,
+  Plus,
   RefreshCw,
   Shield,
   Loader2,
@@ -255,7 +257,13 @@ export default function ProjectDetailPage({
 
       {/* Deployments */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold">Deployments</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Deployments</h3>
+          <Button variant="outline" size="sm" render={<Link href={`/deployments/new?projectId=${projectId}`} />}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New Deployment
+          </Button>
+        </div>
         {deployments && deployments.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {deployments.map((d) => {
@@ -282,11 +290,19 @@ export default function ProjectDetailPage({
             })}
           </div>
         ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No deployments in this project yet.
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-border py-16 text-center">
+            <Container className="h-8 w-8 text-muted-foreground/30" />
+            <div>
+              <p className="text-sm font-medium">No deployments yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Create your first deployment in this project.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" render={<Link href={`/deployments/new?projectId=${projectId}`} />} className="mt-2">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              New Deployment
+            </Button>
+          </div>
         )}
       </div>
 
