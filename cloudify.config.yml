@@ -1,0 +1,59 @@
+app:
+  name: "Cloudify"
+  description: "Deployment Manager"
+  version: "1.0.0"
+
+server:
+  host: "0.0.0.0"
+  webPort: 3000
+  apiPort: 4000
+  serverIp: "146.235.212.232"
+
+domain:
+  baseDomain: "devhomelab.org"
+  wildcardFallback: true
+  scheme: "https"
+
+cloudflare:
+  apiToken: ""
+  zoneId: ""
+  proxied: true
+  ttl: 1
+
+nginxProxyManager:
+  url: "http://localhost:81"
+  email: ""
+  password: ""
+  wildcardCertDomain: "*.devhomelab.org"
+  backendAdvancedConfig: |
+    proxy_read_timeout 86400;
+    proxy_buffering off;
+
+convex:
+  url: ""
+  deployKey: ""
+
+ports:
+  rangeStart: 10200
+  rangeEnd: 10999
+  reservedPorts: [80, 443, 3000, 4000, 5432, 6791, 8080]
+
+services:
+  convex:
+    enabled: true
+    images:
+      backend: "ghcr.io/get-convex/convex-backend:latest"
+      dashboard: "ghcr.io/get-convex/convex-dashboard:latest"
+      postgres: "postgres:16-alpine"
+    subdomainPattern:
+      backend: "{name}"
+      site: "{name}-http"
+      dashboard: "{name}-dash"
+  postgres:
+    enabled: false
+  spacetimedb:
+    enabled: false
+
+branding:
+  primaryColor: "#6366f1"
+  logo: ""

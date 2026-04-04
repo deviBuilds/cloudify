@@ -1,0 +1,75 @@
+services:
+  # --- Cloudify's own infrastructure ---
+  cloudify-postgres:
+    image: postgres:16-alpine
+    container_name: cloudify-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cloudify
+      POSTGRES_PASSWORD: ${CLOUDIFY_DB_PASSWORD:-cloudify-dev}
+      POSTGRES_DB: cloudify
+    ports:
+      - "${CLOUDIFY_PG_PORT:-5433}:5432"
+    volumes:
+      - cloudify_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudify -d cloudify"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cloudify-convex:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: cloudify-convex
+    restart: unless-stopped
+    ports:
+      - "${CLOUDIFY_CONVEX_PORT:-3211}:3210"
+      - "${CLOUDIFY_CONVEX_SITE_PORT:-3212}:3211"
+    environment:
+      - POSTGRES_URL=postgresql://cloudify:${CLOUDIFY_DB_PASSWORD:-cloudify-dev}@cloudify-postgres:5432/cloudify
+      - CONVEX_CLOUD_ORIGIN=${CLOUDIFY_CONVEX_URL:-http://localhost:3211}
+      - CONVEX_SITE_ORIGIN=${CLOUDIFY_CONVEX_SITE:-http://localhost:3212}
+      - DO_NOT_REQUIRE_SSL=true
+    depends_on:
+      cloudify-postgres:
+        condition: service_healthy
+    volumes:
+      - cloudify_convex_data:/convex/data
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 15s
+
+  # --- Cloudify infra agent ---
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    container_name: cloudify-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-4000}:4000"
+    volumes:
+      - ../apps/api:/app/apps/api
+      - ../packages:/app/packages
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - INFRA_AGENT_SECRET=${INFRA_AGENT_SECRET:-dev-secret}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+      - NPM_URL=${NPM_URL:-http://host.docker.internal:81}
+      - NPM_EMAIL=${NPM_EMAIL}
+      - NPM_PASSWORD=${NPM_PASSWORD}
+      - SERVER_IP=${SERVER_IP}
+      - BASE_DOMAIN=${BASE_DOMAIN:-devhomelab.org}
+    depends_on:
+      cloudify-convex:
+        condition: service_healthy
+
+volumes:
+  cloudify_pgdata:
+  cloudify_convex_data:

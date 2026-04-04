@@ -1,0 +1,28 @@
+{
+  "name": "@cloudify/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "tsup",
+    "start": "bun run dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudify/docker-manager": "workspace:*",
+    "@cloudify/domain-manager": "workspace:*",
+    "@cloudify/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "systeminformation": "^5.31.5"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.0",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.0",
+    "@types/js-yaml": "^4.0.0"
+  }
+}

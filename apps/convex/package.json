@@ -1,0 +1,19 @@
+{
+  "name": "@cloudify/convex",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@auth/core": "^0.34.3",
+    "@convex-dev/auth": "^0.0.91",
+    "convex": "^1.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

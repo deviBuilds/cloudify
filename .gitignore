@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+*.db
+dist/
+.turbo/
+.next/
+bun.lock
