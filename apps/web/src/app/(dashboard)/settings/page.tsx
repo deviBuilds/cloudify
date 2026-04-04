@@ -1,3 +1,8 @@
+"use client";
+
+import { InfrastructureStatus } from "@/components/settings/infrastructure-status";
+import { Separator } from "@/components/ui/separator";
+
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
@@ -7,9 +12,8 @@ export default function SettingsPage() {
           Platform configuration and infrastructure status
         </p>
       </div>
-      <p className="text-muted-foreground">
-        Settings will be added in a future milestone.
-      </p>
+      <Separator />
+      <InfrastructureStatus />
     </div>
   );
 }

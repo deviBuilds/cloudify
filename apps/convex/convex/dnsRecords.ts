@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const byDeployment = query({
@@ -9,6 +9,31 @@ export const byDeployment = query({
       .withIndex("by_deployment", (q) => q.eq("deploymentId", args.deploymentId))
       .filter((q) => q.eq(q.field("deletedAt"), undefined))
       .collect();
+  },
+});
+
+export const insertRecord = mutation({
+  args: {
+    deploymentId: v.id("deployments"),
+    subdomain: v.string(),
+    fullDomain: v.string(),
+    recordType: v.string(),
+    cloudflareId: v.optional(v.string()),
+    npmProxyId: v.optional(v.number()),
+    serviceRole: v.string(),
+    targetPort: v.number(),
+    websocket: v.boolean(),
+    proxied: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("dnsRecords", args);
+  },
+});
+
+export const softDelete = mutation({
+  args: { id: v.id("dnsRecords") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
   },
 });
 
