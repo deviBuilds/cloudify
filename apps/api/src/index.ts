@@ -7,6 +7,9 @@ import metricsRouter from "./routes/metrics.js";
 import dnsRouter from "./routes/dns.js";
 import proxyRouter from "./routes/proxy.js";
 import statusRouter from "./routes/status.js";
+import composeRouter from "./routes/compose.js";
+import containersRouter from "./routes/containers.js";
+import credentialsRouter from "./routes/credentials.js";
 
 const app = express();
 
@@ -22,6 +25,9 @@ app.use("/infra", metricsRouter);
 app.use("/infra", dnsRouter);
 app.use("/infra", proxyRouter);
 app.use("/infra", statusRouter);
+app.use("/infra", composeRouter);
+app.use("/infra", containersRouter);
+app.use("/infra", credentialsRouter);
 
 // Global error handler
 app.use(

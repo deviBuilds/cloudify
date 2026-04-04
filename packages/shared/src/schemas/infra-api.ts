@@ -3,7 +3,7 @@ import { z } from "zod";
 // Compose operations
 export const composeWriteRequestSchema = z.object({
   dir: z.string(),
-  composeYaml: z.string(),
+  compose: z.record(z.string(), z.unknown()),
   envVars: z.record(z.string(), z.string()).optional(),
 });
 

@@ -10,7 +10,7 @@ export {
   execInContainer,
 } from "./containers.js";
 
-export { writeComposeFile, composeUp, composeDown } from "./compose.js";
+export { writeComposeFile, composeUp, composeDown, composeStop, composeRestart } from "./compose.js";
 
 export { getContainerStats } from "./stats.js";
 export type { ContainerStats } from "./stats.js";

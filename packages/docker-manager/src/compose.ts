@@ -59,3 +59,33 @@ export function composeDown(
     });
   });
 }
+
+/**
+ * Runs `docker compose stop` in the given directory (stops without removing).
+ */
+export function composeStop(dir: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    exec("docker compose stop", { cwd: dir }, (error, _stdout, stderr) => {
+      if (error) {
+        reject(new Error(`docker compose stop failed: ${stderr || error.message}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+/**
+ * Runs `docker compose restart` in the given directory.
+ */
+export function composeRestart(dir: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    exec("docker compose restart", { cwd: dir }, (error, _stdout, stderr) => {
+      if (error) {
+        reject(new Error(`docker compose restart failed: ${stderr || error.message}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}

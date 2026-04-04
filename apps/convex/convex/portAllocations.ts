@@ -8,33 +8,52 @@ export const list = query({
   },
 });
 
+const RESERVED_PORTS = [80, 443, 3000, 4000, 5432, 6791, 8080];
+const PORT_RANGE_START = 10200;
+const PORT_RANGE_END = 10999;
+
+export const isPortAvailable = query({
+  args: { port: v.number() },
+  handler: async (ctx, args) => {
+    if (RESERVED_PORTS.includes(args.port)) return false;
+    if (args.port < PORT_RANGE_START || args.port > PORT_RANGE_END) return false;
+    const existing = await ctx.db
+      .query("portAllocations")
+      .withIndex("by_port", (q) => q.eq("port", args.port))
+      .first();
+    return !existing;
+  },
+});
+
 export const allocatePorts = mutation({
   args: {
     deploymentId: v.id("deployments"),
-    count: v.number(),
+    roles: v.array(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("portAllocations").collect();
     const usedPorts = new Set(existing.map((a) => a.port));
+    const reservedSet = new Set(RESERVED_PORTS);
+    const count = args.roles.length;
 
     const allocated: number[] = [];
-    for (let port = 10200; port <= 10999 && allocated.length < args.count; port++) {
-      if (!usedPorts.has(port)) {
+    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END && allocated.length < count; port++) {
+      if (!usedPorts.has(port) && !reservedSet.has(port)) {
         allocated.push(port);
       }
     }
 
-    if (allocated.length < args.count) {
+    if (allocated.length < count) {
       throw new Error(
-        `Not enough available ports. Requested ${args.count}, found ${allocated.length}`
+        `Not enough available ports. Requested ${count}, found ${allocated.length}`
       );
     }
 
-    for (const port of allocated) {
+    for (let i = 0; i < allocated.length; i++) {
       await ctx.db.insert("portAllocations", {
         deploymentId: args.deploymentId,
-        port,
-        role: `port-${port}`,
+        port: allocated[i],
+        role: args.roles[i],
       });
     }
 
