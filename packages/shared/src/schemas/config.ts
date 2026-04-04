@@ -20,8 +20,8 @@ export const domainConfigSchema = z.object({
 });
 
 export const cloudflareConfigSchema = z.object({
-  apiToken: z.string(),
-  zoneId: z.string(),
+  apiToken: z.string().default(""),
+  zoneId: z.string().default(""),
   proxied: z.boolean().default(true),
   ttl: z.number().default(1),
 });

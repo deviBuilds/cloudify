@@ -28,9 +28,21 @@ export const byName = query({
   },
 });
 
+export const listByProject = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("deployments")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("deletedAt"), undefined))
+      .collect();
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),
+    projectId: v.optional(v.id("projects")),
     serviceType: v.union(
       v.literal("convex"),
       v.literal("postgres"),

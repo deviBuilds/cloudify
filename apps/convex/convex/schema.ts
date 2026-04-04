@@ -5,8 +5,22 @@ import { authTables } from "@convex-dev/auth/server";
 export default defineSchema({
   ...authTables,
 
+  projects: defineTable({
+    name: v.string(),
+    domain: v.string(),
+    cloudflareApiToken: v.string(),
+    cloudflareZoneId: v.string(),
+    wildcardCertId: v.optional(v.number()),
+    scheme: v.optional(v.string()),
+    isDefault: v.optional(v.boolean()),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("by_domain", ["domain"])
+    .index("by_default", ["isDefault"]),
+
   deployments: defineTable({
     name: v.string(),
+    projectId: v.optional(v.id("projects")),
     serviceType: v.union(
       v.literal("convex"),
       v.literal("postgres"),
@@ -26,7 +40,8 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_name", ["name"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_project", ["projectId"]),
 
   dnsRecords: defineTable({
     deploymentId: v.id("deployments"),

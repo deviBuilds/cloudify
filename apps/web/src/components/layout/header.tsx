@@ -5,6 +5,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const routeTitles: Record<string, string> = {
   "/": "Overview",
+  "/projects": "Projects",
+  "/projects/new": "New Project",
   "/deployments": "Deployments",
   "/deployments/new": "New Deployment",
   "/system": "System",
@@ -16,7 +18,8 @@ export function Header() {
 
   const title =
     routeTitles[pathname] ??
-    (pathname.startsWith("/deployments/") ? "Deployment" : "Cloudify");
+    (pathname.startsWith("/deployments/") ? "Deployment" :
+     pathname.startsWith("/projects/") ? "Project" : "Cloudify");
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border px-4">

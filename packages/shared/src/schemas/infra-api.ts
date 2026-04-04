@@ -16,12 +16,23 @@ export const composeDownRequestSchema = z.object({
   removeVolumes: z.boolean().default(false),
 });
 
+// Per-request Cloudflare credentials (optional — falls back to global config)
+export const cloudflareCredentialsSchema = z.object({
+  cloudflareApiToken: z.string().optional(),
+  cloudflareZoneId: z.string().optional(),
+});
+
 // DNS operations
 export const dnsCreateRequestSchema = z.object({
   subdomain: z.string(),
   ip: z.string(),
   proxied: z.boolean().default(false),
-});
+  baseDomain: z.string().optional(),
+}).merge(cloudflareCredentialsSchema);
+
+export const dnsDeleteRequestSchema = cloudflareCredentialsSchema;
+
+export const dnsVerifyRequestSchema = cloudflareCredentialsSchema;
 
 export const dnsCreateResponseSchema = z.object({
   id: z.string(),
@@ -90,11 +101,14 @@ export const healthResponseSchema = z.object({
 });
 
 // Inferred types
+export type CloudflareCredentials = z.infer<typeof cloudflareCredentialsSchema>;
 export type ComposeWriteRequest = z.infer<typeof composeWriteRequestSchema>;
 export type ComposeUpRequest = z.infer<typeof composeUpRequestSchema>;
 export type ComposeDownRequest = z.infer<typeof composeDownRequestSchema>;
 export type DnsCreateRequest = z.infer<typeof dnsCreateRequestSchema>;
 export type DnsCreateResponse = z.infer<typeof dnsCreateResponseSchema>;
+export type DnsDeleteRequest = z.infer<typeof dnsDeleteRequestSchema>;
+export type DnsVerifyRequest = z.infer<typeof dnsVerifyRequestSchema>;
 export type ProxyCreateRequest = z.infer<typeof proxyCreateRequestSchema>;
 export type ProxyCreateResponse = z.infer<typeof proxyCreateResponseSchema>;
 export type CredentialsGenerateRequest = z.infer<typeof credentialsGenerateRequestSchema>;

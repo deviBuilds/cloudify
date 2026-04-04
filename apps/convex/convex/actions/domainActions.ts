@@ -38,15 +38,36 @@ async function infraFetch(method: string, path: string, body?: unknown) {
 }
 
 export const setupDomains = action({
-  args: { id: v.id("deployments") },
+  args: {
+    id: v.id("deployments"),
+    projectId: v.optional(v.id("projects")),
+  },
   handler: async (ctx, args) => {
     const deployment = await ctx.runQuery(api.deployments.get, { id: args.id });
     if (!deployment) throw new Error("Deployment not found");
 
     const serverIp = process.env.SERVER_IP;
-    const baseDomain = process.env.BASE_DOMAIN;
-    if (!serverIp || !baseDomain) {
-      throw new Error("SERVER_IP and BASE_DOMAIN must be configured");
+    if (!serverIp) throw new Error("SERVER_IP must be configured");
+
+    // Load project for domain + CF credentials, or fall back to env vars
+    let baseDomain: string;
+    let cfToken: string | undefined;
+    let cfZoneId: string | undefined;
+    let certDomain: string | undefined;
+    let storedCertId: number | undefined;
+
+    if (args.projectId) {
+      const project = await ctx.runQuery(api.projects.get, { id: args.projectId });
+      if (!project) throw new Error("Project not found");
+      baseDomain = project.domain;
+      cfToken = project.cloudflareApiToken;
+      cfZoneId = project.cloudflareZoneId;
+      certDomain = project.domain;
+      storedCertId = project.wildcardCertId ?? undefined;
+    } else {
+      // Backward compat: use env var
+      baseDomain = process.env.BASE_DOMAIN!;
+      if (!baseDomain) throw new Error("BASE_DOMAIN must be configured");
     }
 
     const entries = SUBDOMAIN_ENTRIES[deployment.serviceType];
@@ -55,17 +76,27 @@ export const setupDomains = action({
     }
 
     // Get wildcard cert ID for NPM proxy hosts
-    const certResult = await infraFetch("GET", "/infra/proxy/cert") as { certId: number | null };
-    if (!certResult.certId) {
-      throw new Error("Wildcard certificate not found in Nginx Proxy Manager");
-    }
-    const certificateId = certResult.certId;
+    const certificateId = storedCertId ?? await (async () => {
+      const certPath = certDomain
+        ? `/infra/proxy/cert?domain=${encodeURIComponent(certDomain)}`
+        : "/infra/proxy/cert";
+      const certResult = await infraFetch("GET", certPath) as { certId: number | null };
+      if (!certResult.certId) {
+        throw new Error("Wildcard certificate not found in Nginx Proxy Manager");
+      }
+      return certResult.certId;
+    })();
 
     // Advanced config for backend services (WebSocket support)
     const backendAdvancedConfig = "proxy_read_timeout 86400;\nproxy_buffering off;";
 
     // Track created resources for rollback
     const created: { cloudflareId?: string; npmProxyId?: number }[] = [];
+
+    // Build per-request CF credentials object (only if project-based)
+    const cfCreds = cfToken && cfZoneId
+      ? { cloudflareApiToken: cfToken, cloudflareZoneId: cfZoneId, baseDomain }
+      : {};
 
     try {
       for (const entry of entries) {
@@ -83,6 +114,7 @@ export const setupDomains = action({
           subdomain,
           ip: serverIp,
           proxied: false,
+          ...cfCreds,
         }) as { id: string; name: string };
 
         created.push({ cloudflareId: dnsResult.id });
@@ -122,10 +154,13 @@ export const setupDomains = action({
       });
     } catch (error) {
       // Rollback: delete any created resources
+      const cfQueryParams = cfToken && cfZoneId
+        ? `?cloudflareApiToken=${encodeURIComponent(cfToken)}&cloudflareZoneId=${encodeURIComponent(cfZoneId)}`
+        : "";
       for (const record of created) {
         try {
           if (record.cloudflareId) {
-            await infraFetch("DELETE", `/infra/dns/${record.cloudflareId}`);
+            await infraFetch("DELETE", `/infra/dns/${record.cloudflareId}${cfQueryParams}`);
           }
         } catch {
           // Best-effort rollback
@@ -144,8 +179,20 @@ export const setupDomains = action({
 });
 
 export const teardownDomains = action({
-  args: { id: v.id("deployments") },
+  args: {
+    id: v.id("deployments"),
+    projectId: v.optional(v.id("projects")),
+  },
   handler: async (ctx, args) => {
+    // Load project for CF credentials if available
+    let cfQueryParams = "";
+    if (args.projectId) {
+      const project = await ctx.runQuery(api.projects.get, { id: args.projectId });
+      if (project && project.cloudflareApiToken && project.cloudflareZoneId) {
+        cfQueryParams = `?cloudflareApiToken=${encodeURIComponent(project.cloudflareApiToken)}&cloudflareZoneId=${encodeURIComponent(project.cloudflareZoneId)}`;
+      }
+    }
+
     const records = await ctx.runQuery(api.dnsRecords.byDeployment, {
       deploymentId: args.id,
     });
@@ -154,7 +201,7 @@ export const teardownDomains = action({
       // Delete Cloudflare record (best-effort)
       if (record.cloudflareId) {
         try {
-          await infraFetch("DELETE", `/infra/dns/${record.cloudflareId}`);
+          await infraFetch("DELETE", `/infra/dns/${record.cloudflareId}${cfQueryParams}`);
         } catch (err) {
           console.error(`Failed to delete CF record ${record.cloudflareId}:`, err);
         }

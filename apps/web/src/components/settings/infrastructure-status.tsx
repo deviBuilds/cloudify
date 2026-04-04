@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import {
   Card,
   CardContent,
@@ -10,14 +12,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Globe, Shield, FileCheck, Database, RefreshCw } from "lucide-react";
+import { Shield, FolderKanban, RefreshCw } from "lucide-react";
 
 interface InfraStatus {
-  cloudflare: { connected: boolean };
   npm: { connected: boolean };
-  wildcardCert: { found: boolean; id: number | null; domain: string };
-  dnsRecords: { total: number };
-  baseDomain: string;
+  serverIp: string;
 }
 
 export function InfrastructureStatus() {
@@ -70,33 +69,22 @@ export function InfrastructureStatus() {
     );
   }
 
+  const projects = useQuery(api.projects.list);
+  const projectCount = projects?.length ?? 0;
+  const certsConfigured = projects?.filter((p) => p.wildcardCertId).length ?? 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Infrastructure Status</h3>
+        <h3 className="text-sm font-medium">Infrastructure Status</h3>
         <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${testing ? "animate-spin" : ""}`} />
-          Test Connectivity
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${testing ? "animate-spin" : ""}`} />
+          Test
         </Button>
       </div>
 
       {status ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Cloudflare</CardTitle>
-              <Globe className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <Badge variant={status.cloudflare.connected ? "default" : "destructive"}>
-                {status.cloudflare.connected ? "Connected" : "Disconnected"}
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-2">
-                DNS provider for {status.baseDomain}
-              </p>
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Nginx Proxy Manager</CardTitle>
@@ -114,37 +102,32 @@ export function InfrastructureStatus() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Wildcard Certificate</CardTitle>
-              <FileCheck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Projects</CardTitle>
+              <FolderKanban className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <Badge variant={status.wildcardCert.found ? "default" : "secondary"}>
-                {status.wildcardCert.found
-                  ? `Found (ID: ${status.wildcardCert.id})`
-                  : "Not Found"}
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-2">
-                {status.wildcardCert.domain}
+              <div className="text-2xl font-bold tabular-nums">{projectCount}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {certsConfigured} with wildcard cert
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">DNS Records</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Server IP</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{status.dnsRecords.total}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Managed records in Cloudflare
+              <code className="text-sm">{status.serverIp}</code>
+              <p className="text-xs text-muted-foreground mt-2">
+                Host address for DNS records
               </p>
             </CardContent>
           </Card>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
                 <Skeleton className="h-4 w-24" />

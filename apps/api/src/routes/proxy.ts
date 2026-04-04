@@ -75,11 +75,12 @@ router.get("/proxy/list", async (_req, res) => {
 });
 
 // GET /infra/proxy/cert
-router.get("/proxy/cert", async (_req, res) => {
+router.get("/proxy/cert", async (req, res) => {
   const npm = getNpmClient();
   const config = getConfig();
-  const certId = await discoverWildcardCert(npm, config.nginxProxyManager.wildcardCertDomain);
-  res.json({ certId, domain: config.nginxProxyManager.wildcardCertDomain });
+  const domain = (req.query.domain as string) || config.nginxProxyManager.wildcardCertDomain;
+  const certId = await discoverWildcardCert(npm, domain);
+  res.json({ certId, domain });
 });
 
 // GET /infra/proxy/verify

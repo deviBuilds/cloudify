@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
+  FolderKanban,
   Container,
   Server,
   Settings,
@@ -27,6 +28,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
   { title: "Deployments", href: "/deployments", icon: Container },
   { title: "System", href: "/system", icon: Server },
   { title: "Settings", href: "/settings", icon: Settings },

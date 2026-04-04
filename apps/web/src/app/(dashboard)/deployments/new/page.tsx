@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,10 +73,20 @@ export default function NewDeploymentPage() {
   const [result, setResult] = useState<DeploymentResult | null>(null);
   const [progressIndex, setProgressIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | null>(null);
   const router = useRouter();
   const createDeployment = useAction(api.actions.createDeployment.createDeployment);
+  const projects = useQuery(api.projects.list);
 
-  const baseDomain = "devhomelab.org";
+  // Auto-select if only one project
+  useEffect(() => {
+    if (projects && projects.length === 1 && !selectedProjectId) {
+      setSelectedProjectId(projects[0]._id);
+    }
+  }, [projects, selectedProjectId]);
+
+  const selectedProject = projects?.find((p) => p._id === selectedProjectId);
+  const baseDomain = selectedProject?.domain ?? "";
 
   const form = useForm<DeploymentNameForm>({
     resolver: zodResolver(deploymentNameSchema),
@@ -98,13 +109,17 @@ export default function NewDeploymentPage() {
   }, [creating]);
 
   const handleCreate = async () => {
+    if (!selectedProjectId) {
+      setError("Please select a project");
+      return;
+    }
     setCreating(true);
     setError(null);
     setProgressIndex(0);
     setStep(4);
 
     try {
-      const res = await createDeployment({ name, serviceType });
+      const res = await createDeployment({ name, serviceType, projectId: selectedProjectId });
       setResult(res as DeploymentResult);
       setStep(5);
     } catch (err) {
@@ -136,9 +151,55 @@ export default function NewDeploymentPage() {
         </div>
       </div>
 
-      {/* Step 1: Service Type */}
+      {/* Step 1: Service Type + Project */}
       {step === 1 && (
         <div className="space-y-4">
+          {/* Project Selection */}
+          {projects && projects.length === 0 && (
+            <Card className="border-yellow-500/30">
+              <CardContent className="pt-6">
+                <p className="text-sm text-yellow-500">
+                  No projects configured.{" "}
+                  <Link href="/projects/new" className="underline">
+                    Create a project
+                  </Link>{" "}
+                  first to set up a domain for deployments.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {projects && projects.length > 1 && (
+            <div className="space-y-2">
+              <Label>Project</Label>
+              <select
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground"
+                value={selectedProjectId ?? ""}
+                onChange={(e) => setSelectedProjectId(e.target.value as Id<"projects">)}
+              >
+                <option value="">Select a project...</option>
+                {projects.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name} ({p.domain})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {selectedProject && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-normal">
+                {selectedProject.domain}
+              </Badge>
+              {!selectedProject.wildcardCertId && (
+                <Badge variant="outline" className="text-[10px] font-normal text-yellow-500">
+                  No wildcard cert
+                </Badge>
+              )}
+            </div>
+          )}
+
           <h3 className="text-lg font-medium">Choose Service Type</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <Card
@@ -186,7 +247,7 @@ export default function NewDeploymentPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={() => setStep(2)}>
+            <Button onClick={() => setStep(2)} disabled={!selectedProjectId}>
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -280,6 +341,10 @@ export default function NewDeploymentPage() {
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Project</span>
+                <span className="text-sm">{selectedProject?.name} ({baseDomain})</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Name</span>
                 <span className="font-medium">{name}</span>
               </div>
@@ -289,7 +354,7 @@ export default function NewDeploymentPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subdomains</span>
-                <span className="text-sm">3 records</span>
+                <span className="text-sm">3 records on {baseDomain}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ports</span>

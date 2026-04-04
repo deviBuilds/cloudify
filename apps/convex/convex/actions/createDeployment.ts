@@ -109,9 +109,10 @@ export const createDeployment = action({
       v.literal("postgres"),
       v.literal("spacetimedb")
     ),
+    projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const { name, serviceType } = args;
+    const { name, serviceType, projectId } = args;
 
     // Only Convex is supported for now
     if (serviceType !== "convex") {
@@ -124,16 +125,23 @@ export const createDeployment = action({
       throw new Error(`Deployment "${name}" already exists`);
     }
 
-    const serverIp = process.env.SERVER_IP;
-    const baseDomain = process.env.BASE_DOMAIN;
-    if (!serverIp || !baseDomain) {
-      throw new Error("SERVER_IP and BASE_DOMAIN must be configured");
+    // Load project for domain config
+    const project = await ctx.runQuery(api.projects.get, { id: projectId });
+    if (!project || project.deletedAt) {
+      throw new Error("Project not found");
     }
+
+    const serverIp = process.env.SERVER_IP;
+    if (!serverIp) {
+      throw new Error("SERVER_IP must be configured");
+    }
+    const baseDomain = project.domain;
 
     // Step 1: Create deployment record
     const deploymentId = await ctx.runMutation(api.deployments.create, {
       name,
       serviceType,
+      projectId,
       status: "creating",
       containerPrefix: name,
       config: {},
@@ -168,7 +176,7 @@ export const createDeployment = action({
       });
 
       // Step 4: Setup domains (CF DNS + NPM proxies)
-      await ctx.runAction(api.actions.domainActions.setupDomains, { id: deploymentId });
+      await ctx.runAction(api.actions.domainActions.setupDomains, { id: deploymentId, projectId });
       domainsSetup = true;
 
       // Step 5: Generate compose config
