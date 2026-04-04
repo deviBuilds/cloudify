@@ -30,7 +30,7 @@ export default function DashboardLayout({
   if (authLoading || hasUsers === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
       </div>
     );
   }
@@ -42,7 +42,7 @@ export default function DashboardLayout({
       <AppSidebar />
       <SidebarInset>
         <Header />
-        <main className="flex-1 p-6">{children}</main>
+        <div className="flex-1 p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -10,27 +10,19 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   Container,
   Server,
   Settings,
   LogOut,
-  ChevronUp,
-  Cloud,
 } from "lucide-react";
 
 const navItems = [
@@ -52,20 +44,31 @@ export function AppSidebar() {
 
   const initials = user?.email
     ? user.email.slice(0, 2).toUpperCase()
-    : "U";
+    : "CL";
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <Cloud className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold">Cloudify</span>
-        </Link>
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-500 text-[10px] font-bold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate text-sm font-medium text-sidebar-primary">
+            {user?.email ?? "Cloudify"}
+          </span>
+          <Badge
+            variant="outline"
+            className="ml-auto h-[18px] shrink-0 border-sidebar-border px-1.5 text-[10px] font-normal text-sidebar-foreground"
+          >
+            Self-Hosted
+          </Badge>
+        </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-1.5 pt-2">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -84,35 +87,26 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="w-full">
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-xs">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate text-sm">
-                    {user?.email ?? "User"}
-                  </span>
-                  <ChevronUp className="ml-auto h-4 w-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" className="w-56">
-                <DropdownMenuItem
-                  onClick={() => signOut()}
-                  className="text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="bg-sidebar-accent text-[10px] font-medium text-sidebar-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-black" />
+          </div>
+          <span className="flex-1 truncate text-xs text-sidebar-foreground">
+            {user?.email ?? "User"}
+          </span>
+          <button
+            onClick={() => signOut()}
+            className="rounded p-1 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

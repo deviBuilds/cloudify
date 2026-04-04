@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -93,8 +92,8 @@ export default function SystemPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">System</h2>
-        <p className="text-muted-foreground">
+        <h3 className="text-sm font-medium">System</h3>
+        <p className="text-xs text-muted-foreground">
           Host metrics and Docker containers
         </p>
       </div>
@@ -204,13 +203,12 @@ export default function SystemPage() {
                       {c.image}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          c.state === "running" ? "default" : "secondary"
-                        }
-                      >
-                        {c.state}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 rounded-full ${c.state === "running" ? "bg-green-500" : "bg-neutral-500"}`}
+                        />
+                        <span className="text-sm">{c.state}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {c.state === "running"

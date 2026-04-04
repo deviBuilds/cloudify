@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Cloud } from "lucide-react";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -66,7 +67,8 @@ export default function SetupPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome to Cloudify</CardTitle>
+        <Cloud className="mx-auto mb-1 h-6 w-6 text-foreground" />
+        <CardTitle className="text-lg">Welcome to Cloudify</CardTitle>
         <CardDescription>
           Create your admin account to get started
         </CardDescription>

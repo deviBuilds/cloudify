@@ -129,10 +129,10 @@ export default function NewDeploymentPage() {
           </Link>
         </Button>
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
+          <h3 className="text-sm font-medium">
             New Deployment
-          </h2>
-          <p className="text-muted-foreground">Step {step} of 5</p>
+          </h3>
+          <p className="text-xs text-muted-foreground">Step {step} of 5</p>
         </div>
       </div>
 

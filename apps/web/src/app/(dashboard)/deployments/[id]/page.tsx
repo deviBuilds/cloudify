@@ -189,27 +189,32 @@ export default function DeploymentDetailPage({
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h2 className="text-sm font-medium">
               {deployment.name}
             </h2>
-            <Badge
-              variant={
-                deployment.status === "running"
-                  ? "default"
-                  : deployment.status === "error"
-                    ? "destructive"
-                    : "secondary"
-              }
-            >
-              {deployment.status}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  deployment.status === "running"
+                    ? "bg-green-500"
+                    : deployment.status === "error"
+                      ? "bg-red-500"
+                      : deployment.status === "degraded"
+                        ? "bg-yellow-500"
+                        : "bg-neutral-500"
+                }`}
+              />
+              <span className="text-xs text-muted-foreground">{deployment.status}</span>
+            </div>
           </div>
-          <p className="text-muted-foreground">
-            <Badge variant="outline" className="mr-2">
+          <div className="flex items-center gap-2 mt-0.5">
+            <Badge variant="outline" className="text-[10px] font-normal">
               {deployment.serviceType}
             </Badge>
-            Created {new Date(deployment._creationTime).toLocaleDateString()}
-          </p>
+            <span className="text-xs text-muted-foreground">
+              Created {new Date(deployment._creationTime).toLocaleDateString()}
+            </span>
+          </div>
         </div>
         <div className="flex gap-2">
           {isStopped && (
@@ -261,7 +266,7 @@ export default function DeploymentDetailPage({
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="containers">Containers</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -401,13 +406,12 @@ export default function DeploymentDetailPage({
                           {c.image}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              c.state === "running" ? "default" : "secondary"
-                            }
-                          >
-                            {c.state}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${c.state === "running" ? "bg-green-500" : "bg-neutral-500"}`}
+                            />
+                            <span className="text-sm">{c.state}</span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {c.status}
@@ -431,7 +435,7 @@ export default function DeploymentDetailPage({
         <TabsContent value="logs" className="space-y-4">
           <div className="flex items-center gap-3">
             <select
-              className="rounded border bg-background px-3 py-1.5 text-sm"
+              className="rounded border border-border bg-background px-3 py-1.5 text-sm text-foreground"
               value={selectedContainer}
               onChange={(e) => setSelectedContainer(e.target.value)}
             >
@@ -614,17 +618,18 @@ export default function DeploymentDetailPage({
                   <TableRow>
                     <TableCell className="font-medium">Status</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          deployment.status === "running"
-                            ? "default"
-                            : deployment.status === "error"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {deployment.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            deployment.status === "running"
+                              ? "bg-green-500"
+                              : deployment.status === "error"
+                                ? "bg-red-500"
+                                : "bg-neutral-500"
+                          }`}
+                        />
+                        <span className="text-sm">{deployment.status}</span>
+                      </div>
                     </TableCell>
                   </TableRow>
                   <TableRow>

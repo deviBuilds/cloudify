@@ -2,11 +2,11 @@
 
 import { usePathname } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 
 const routeTitles: Record<string, string> = {
-  "/": "Dashboard",
+  "/": "Overview",
   "/deployments": "Deployments",
+  "/deployments/new": "New Deployment",
   "/system": "System",
   "/settings": "Settings",
 };
@@ -19,10 +19,13 @@ export function Header() {
     (pathname.startsWith("/deployments/") ? "Deployment" : "Cloudify");
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b px-4">
-      <SidebarTrigger />
-      <Separator orientation="vertical" className="h-6" />
-      <h1 className="text-lg font-semibold">{title}</h1>
+    <header className="flex h-12 items-center gap-3 border-b border-border px-4">
+      <SidebarTrigger className="lg:hidden" />
+      <nav className="flex items-center gap-1.5 text-sm">
+        <span className="text-muted-foreground">Cloudify</span>
+        <span className="text-muted-foreground/40">/</span>
+        <span className="font-medium">{title}</span>
+      </nav>
     </header>
   );
 }
