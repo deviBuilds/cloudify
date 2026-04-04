@@ -17,14 +17,14 @@ domain:
 cloudflare:
   apiToken: ""
   zoneId: ""
-  proxied: true
+  proxied: false
   ttl: 1
 
 nginxProxyManager:
   url: "http://localhost:81"
   email: ""
   password: ""
-  wildcardCertDomain: "*.devhomelab.org"
+  wildcardCertDomain: "devhomelab.org"
   backendAdvancedConfig: |
     proxy_read_timeout 86400;
     proxy_buffering off;
@@ -34,7 +34,7 @@ convex:
   deployKey: ""
 
 ports:
-  rangeStart: 10200
+  rangeStart: 10210
   rangeEnd: 10999
   reservedPorts: [80, 443, 3000, 4000, 5432, 6791, 8080]
 
@@ -46,9 +46,9 @@ services:
       dashboard: "ghcr.io/get-convex/convex-dashboard:latest"
       postgres: "postgres:16-alpine"
     subdomainPattern:
-      backend: "{name}"
-      site: "{name}-http"
-      dashboard: "{name}-dash"
+      backend: "{name}-convex-backend"
+      site: "{name}-convex-actions"
+      dashboard: "{name}-convex-dashboard"
   postgres:
     enabled: false
   spacetimedb:

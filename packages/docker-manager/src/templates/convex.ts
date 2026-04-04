@@ -59,9 +59,9 @@ export function generateConvexComposeConfig(
           },
         },
         environment: {
-          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${name}-postgres-db:${ports.postgres}/${pgDb}`,
-          CONVEX_CLOUD_ORIGIN: `${scheme}://${name}.${baseDomain}`,
-          CONVEX_SITE_ORIGIN: `${scheme}://${name}-http.${baseDomain}`,
+          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${name}-postgres-db:${ports.postgres}`,
+          CONVEX_CLOUD_ORIGIN: `${scheme}://${name}-convex-backend.${baseDomain}`,
+          CONVEX_SITE_ORIGIN: `${scheme}://${name}-convex-actions.${baseDomain}`,
           DO_NOT_REQUIRE_SSL: "true",
         },
         ports: [
@@ -85,7 +85,7 @@ export function generateConvexComposeConfig(
           },
         },
         environment: {
-          NEXT_PUBLIC_DEPLOYMENT_URL: `${scheme}://${name}.${baseDomain}`,
+          NEXT_PUBLIC_DEPLOYMENT_URL: `${scheme}://${name}-convex-backend.${baseDomain}`,
         },
         ports: [`${ports.dashboard}:6791`],
         restart: "unless-stopped",

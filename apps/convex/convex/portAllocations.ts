@@ -8,8 +8,8 @@ export const list = query({
   },
 });
 
-const RESERVED_PORTS = [80, 443, 3000, 4000, 5432, 6791, 8080];
-const PORT_RANGE_START = 10200;
+const RESERVED_PORTS = [80, 443, 3000, 3001, 3210, 3211, 3213, 3214, 4000, 5432, 5433, 6791, 8080, 10200, 10201, 10202, 10203];
+const PORT_RANGE_START = 10210;
 const PORT_RANGE_END = 10999;
 
 export const isPortAvailable = query({

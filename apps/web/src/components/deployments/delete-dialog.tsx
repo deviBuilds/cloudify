@@ -32,7 +32,7 @@ export function DeleteDialog({
 }: DeleteDialogProps) {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const deleteAction = useAction(api.deleteDeployment.deleteDeployment);
+  const deleteAction = useAction(api.actions.deleteDeployment.deleteDeployment);
 
   const canDelete = confirmText === deploymentName;
 

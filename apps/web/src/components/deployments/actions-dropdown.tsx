@@ -35,9 +35,9 @@ export function ActionsDropdown({
   onDelete,
 }: ActionsDropdownProps) {
   const [loading, setLoading] = useState<string | null>(null);
-  const startAction = useAction(api.lifecycleActions.start);
-  const stopAction = useAction(api.lifecycleActions.stop);
-  const restartAction = useAction(api.lifecycleActions.restart);
+  const startAction = useAction(api.actions.lifecycleActions.start);
+  const stopAction = useAction(api.actions.lifecycleActions.stop);
+  const restartAction = useAction(api.actions.lifecycleActions.restart);
 
   const handleAction = async (
     actionName: string,

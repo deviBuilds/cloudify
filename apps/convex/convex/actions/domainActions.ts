@@ -9,9 +9,9 @@ const SUBDOMAIN_ENTRIES: Record<
   { suffix: string; role: string; portKey: string; websocket: boolean }[]
 > = {
   convex: [
-    { suffix: "", role: "backend", portKey: "backend", websocket: true },
-    { suffix: "-http", role: "site", portKey: "site", websocket: false },
-    { suffix: "-dash", role: "dashboard", portKey: "dashboard", websocket: false },
+    { suffix: "-convex-backend", role: "backend", portKey: "backend", websocket: true },
+    { suffix: "-convex-actions", role: "site", portKey: "site", websocket: false },
+    { suffix: "-convex-dashboard", role: "dashboard", portKey: "dashboard", websocket: false },
   ],
 };
 
@@ -78,19 +78,18 @@ export const setupDomains = action({
         const subdomain = entry.suffix ? `${deployment.name}${entry.suffix}` : deployment.name;
         const fullDomain = `${subdomain}.${baseDomain}`;
 
-        // Create Cloudflare DNS record
+        // Create Cloudflare DNS record (DNS-only, not proxied — NPM handles SSL)
         const dnsResult = await infraFetch("POST", "/infra/dns/create", {
           subdomain,
           ip: serverIp,
-          proxied: true,
+          proxied: false,
         }) as { id: string; name: string };
 
         created.push({ cloudflareId: dnsResult.id });
 
-        // Create NPM proxy host
+        // Create NPM proxy host (infra agent auto-resolves Docker bridge gateway)
         const proxyResult = await infraFetch("POST", "/infra/proxy/create", {
           domainNames: [fullDomain],
-          forwardHost: serverIp,
           forwardPort: port,
           websocket: entry.websocket,
           certificateId,

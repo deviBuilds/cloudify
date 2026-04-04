@@ -33,7 +33,7 @@ export const insertRecord = mutation({
 export const softDelete = mutation({
   args: { id: v.id("dnsRecords") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { deletedAt: Date.now() });
+    await ctx.db.delete(args.id);
   },
 });
 

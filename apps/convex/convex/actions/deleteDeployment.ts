@@ -49,7 +49,7 @@ export const deleteDeployment = action({
 
     // Step 2: Teardown DNS records + NPM proxies
     try {
-      await ctx.runAction(api.domainActions.teardownDomains, { id: args.id });
+      await ctx.runAction(api.actions.domainActions.teardownDomains, { id: args.id });
     } catch (err) {
       console.error("Failed to teardown domains:", err);
     }

@@ -79,9 +79,9 @@ export default function DeploymentDetailPage({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const startAction = useAction(api.lifecycleActions.start);
-  const stopAction = useAction(api.lifecycleActions.stop);
-  const restartAction = useAction(api.lifecycleActions.restart);
+  const startAction = useAction(api.actions.lifecycleActions.start);
+  const stopAction = useAction(api.actions.lifecycleActions.stop);
+  const restartAction = useAction(api.actions.lifecycleActions.restart);
 
   const fetchContainers = useCallback(async () => {
     if (!deployment) return;

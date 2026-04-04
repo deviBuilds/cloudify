@@ -98,6 +98,6 @@ export const updateDomainUrls = mutation({
 export const softDelete = mutation({
   args: { id: v.id("deployments") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { deletedAt: Date.now(), status: "stopped" });
+    await ctx.db.delete(args.id);
   },
 });

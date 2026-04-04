@@ -20,7 +20,7 @@ export const composeDownRequestSchema = z.object({
 export const dnsCreateRequestSchema = z.object({
   subdomain: z.string(),
   ip: z.string(),
-  proxied: z.boolean().default(true),
+  proxied: z.boolean().default(false),
 });
 
 export const dnsCreateResponseSchema = z.object({
@@ -31,7 +31,7 @@ export const dnsCreateResponseSchema = z.object({
 // Proxy operations
 export const proxyCreateRequestSchema = z.object({
   domainNames: z.array(z.string()),
-  forwardHost: z.string(),
+  forwardHost: z.string().optional(),
   forwardPort: z.number(),
   websocket: z.boolean().default(false),
   certificateId: z.number(),

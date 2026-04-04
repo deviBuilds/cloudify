@@ -73,7 +73,7 @@ export default function NewDeploymentPage() {
   const [progressIndex, setProgressIndex] = useState(0);
   const [copied, setCopied] = useState(false);
   const router = useRouter();
-  const createDeployment = useAction(api.createDeployment.createDeployment);
+  const createDeployment = useAction(api.actions.createDeployment.createDeployment);
 
   const baseDomain = "devhomelab.org";
 
@@ -228,19 +228,19 @@ export default function NewDeploymentPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Backend API</span>
                   <code className="text-xs">
-                    {name}.{baseDomain}
+                    {name}-convex-backend.{baseDomain}
                   </code>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">HTTP Actions</span>
                   <code className="text-xs">
-                    {name}-http.{baseDomain}
+                    {name}-convex-actions.{baseDomain}
                   </code>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Dashboard</span>
                   <code className="text-xs">
-                    {name}-dash.{baseDomain}
+                    {name}-convex-dashboard.{baseDomain}
                   </code>
                 </div>
               </CardContent>
@@ -254,7 +254,7 @@ export default function NewDeploymentPage() {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Ports will be automatically assigned from the available range
-                (10200-10999).
+                (10210-10999).
               </p>
             </CardContent>
           </Card>

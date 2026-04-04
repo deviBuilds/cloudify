@@ -2,20 +2,12 @@
 /**
  * Generated `api` utility — patched for self-hosted Convex backend
  * that requires .js extensions in module paths.
- *
- * The self-hosted backend expects module paths with .js extensions
- * (e.g., "users.js:hasAnyUsers") but the default Convex anyApi proxy
- * generates paths without them (e.g., "users:hasAnyUsers").
- *
- * This file is used at build time by the web app (via the convex symlink).
- * The .js file is the runtime version used after `convex deploy`.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fnName: unique symbol = Symbol.for("functionName") as any;
+const fnName = Symbol.for("functionName");
 
-function createApiWithJsExt(pathParts: string[] = []): any {
-  const handler: ProxyHandler<object> = {
+function createApiWithJsExt(pathParts = []) {
+  const handler = {
     get(_, prop) {
       if (typeof prop === "string") {
         return createApiWithJsExt([...pathParts, prop]);
@@ -37,14 +29,11 @@ function createApiWithJsExt(pathParts: string[] = []): any {
         return "FunctionReference";
       }
       return undefined;
-    },
+    }
   };
   return new Proxy({}, handler);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const api: any = createApiWithJsExt();
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const internal: any = createApiWithJsExt();
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const components: any = {};
+export const api = createApiWithJsExt();
+export const internal = createApiWithJsExt();
+export const components = {};

@@ -1,0 +1,53 @@
+services:
+  cloudify-postgres:
+    image: postgres:16-alpine
+    container_name: cloudify-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cloudify
+      POSTGRES_PASSWORD: ${CLOUDIFY_DB_PASSWORD}
+      POSTGRES_DB: convex_self_hosted
+    ports:
+      - "5433:5432"
+    volumes:
+      - cloudify_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudify -d convex_self_hosted"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cloudify-convex:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: cloudify-convex
+    restart: unless-stopped
+    ports:
+      - "3213:3210"
+      - "3214:3211"
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_URL: postgresql://cloudify:${CLOUDIFY_DB_PASSWORD}@cloudify-postgres:5432
+      CONVEX_CLOUD_ORIGIN: https://convex.projectinworks.com
+      CONVEX_SITE_ORIGIN: https://convex-site.projectinworks.com
+      DO_NOT_REQUIRE_SSL: "true"
+      INFRA_AGENT_URL: http://host.docker.internal:4000
+      NPM_URL: http://host.docker.internal:81
+      SITE_URL: https://projectinworks.com
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      cloudify-postgres:
+        condition: service_healthy
+    volumes:
+      - cloudify_convex_data:/convex/data
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 15s
+
+volumes:
+  cloudify_pgdata:
+  cloudify_convex_data:
