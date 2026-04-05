@@ -5,21 +5,19 @@ set -euo pipefail
 SERVER="${SSH_USER:-ubuntu}@${SSH_HOST:-146.235.212.232}"
 SSH_KEY="${SSH_KEY_PATH:-$HOME/.ssh/ssh-key-2025-08-02.key}"
 APP_DIR="/opt/cloudify/app"
+ENV_FILE="/opt/cloudify/.env"
 CONVEX_ADMIN_KEY="${CONVEX_ADMIN_KEY:-}"
 CONVEX_URL="${NEXT_PUBLIC_CONVEX_URL:-https://convex.projectinworks.com}"
 
 SSH="ssh -i $SSH_KEY $SERVER"
 
-SKIP_BUILD=false
 SKIP_CONVEX=false
 
 for arg in "$@"; do
   case $arg in
-    --skip-build) SKIP_BUILD=true ;;
     --skip-convex) SKIP_CONVEX=true ;;
     --help)
-      echo "Usage: deploy.sh [--skip-build] [--skip-convex]"
-      echo "  --skip-build   Skip local build (use existing artifacts)"
+      echo "Usage: deploy.sh [--skip-convex]"
       echo "  --skip-convex  Skip Convex function deployment"
       exit 0 ;;
   esac
@@ -30,50 +28,47 @@ cd "$(git rev-parse --show-toplevel)"
 echo "=== Testing SSH connection ==="
 $SSH "echo 'Connected to $(hostname)'" || { echo "SSH connection failed"; exit 1; }
 
-if [ "$SKIP_BUILD" = false ]; then
-  echo ""
-  echo "=== Building all packages ==="
-  NEXT_PUBLIC_CONVEX_URL="$CONVEX_URL" npx turbo build --force
+echo ""
+echo "=== Writing .env to VPS ==="
+if [ -f .env ]; then
+  scp -i "$SSH_KEY" .env "$SERVER:$ENV_FILE"
+  $SSH "chmod 600 $ENV_FILE"
+  echo "Wrote .env to $ENV_FILE"
+else
+  echo "Warning: No local .env file found, skipping env write"
 fi
 
 echo ""
-echo "=== Syncing shared packages ==="
-rsync -azP -e "ssh -i $SSH_KEY" packages/shared/dist/ "$SERVER:$APP_DIR/packages/shared/dist/"
-rsync -azP -e "ssh -i $SSH_KEY" packages/domain-manager/dist/ "$SERVER:$APP_DIR/packages/domain-manager/dist/"
-rsync -azP -e "ssh -i $SSH_KEY" packages/docker-manager/dist/ "$SERVER:$APP_DIR/packages/docker-manager/dist/"
-
-echo ""
-echo "=== Syncing API ==="
-rsync -azP -e "ssh -i $SSH_KEY" apps/api/dist/ "$SERVER:$APP_DIR/apps/api/dist/"
-
-echo ""
-echo "=== Syncing Web ==="
-rsync -azP --delete -e "ssh -i $SSH_KEY" apps/web/.next/ "$SERVER:$APP_DIR/apps/web/.next/"
+echo "=== Syncing compose file ==="
+scp -i "$SSH_KEY" docker/docker-compose.cloudify.yml "$SERVER:$APP_DIR/docker/docker-compose.cloudify.yml"
 
 echo ""
 echo "=== Syncing config ==="
-rsync -azP -e "ssh -i $SSH_KEY" cloudify.config.yml "$SERVER:$APP_DIR/cloudify.config.yml"
+scp -i "$SSH_KEY" cloudify.config.yml "$SERVER:$APP_DIR/cloudify.config.yml"
+
+echo ""
+echo "=== Pulling latest images ==="
+$SSH "cd $APP_DIR/docker && \
+  docker compose --env-file $ENV_FILE -f docker-compose.cloudify.yml pull cloudify-web cloudify-api"
+
+echo ""
+echo "=== Starting containers ==="
+$SSH "cd $APP_DIR/docker && \
+  docker compose --env-file $ENV_FILE -f docker-compose.cloudify.yml up -d cloudify-web cloudify-api"
 
 if [ "$SKIP_CONVEX" = false ]; then
   if [ -z "$CONVEX_ADMIN_KEY" ]; then
+    echo ""
     echo "Warning: CONVEX_ADMIN_KEY not set, skipping Convex deploy"
   else
     echo ""
-    echo "=== Syncing Convex functions ==="
-    rsync -azP -e "ssh -i $SSH_KEY" apps/convex/convex/ "$SERVER:$APP_DIR/apps/convex/convex/"
-
-    echo ""
-    echo "=== Deploying Convex functions ==="
-    $SSH "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
-      cd $APP_DIR/apps/convex && \
-      npx convex deploy --url http://localhost:3213 --admin-key '$CONVEX_ADMIN_KEY'"
+    echo "=== Deploying Convex schema ==="
+    cd apps/convex && npx convex deploy \
+      --url "$CONVEX_URL" \
+      --admin-key "$CONVEX_ADMIN_KEY"
+    cd "$(git rev-parse --show-toplevel)"
   fi
 fi
-
-echo ""
-echo "=== Restarting services ==="
-$SSH "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
-  cd $APP_DIR && pm2 restart ecosystem.config.cjs && pm2 save"
 
 echo ""
 echo "=== Health check ==="

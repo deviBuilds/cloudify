@@ -24,14 +24,12 @@ services:
     ports:
       - "3213:3210"
       - "3214:3211"
-    env_file:
-      - ../.env
     environment:
       POSTGRES_URL: postgresql://cloudify:${CLOUDIFY_DB_PASSWORD}@cloudify-postgres:5432
       CONVEX_CLOUD_ORIGIN: https://convex.projectinworks.com
       CONVEX_SITE_ORIGIN: https://convex-site.projectinworks.com
       DO_NOT_REQUIRE_SSL: "true"
-      INFRA_AGENT_URL: http://host.docker.internal:4000
+      INFRA_AGENT_URL: http://cloudify-api:4000
       NPM_URL: http://host.docker.internal:81
       SITE_URL: https://projectinworks.com
     extra_hosts:
@@ -47,6 +45,50 @@ services:
       timeout: 3s
       retries: 15
       start_period: 15s
+
+  cloudify-web:
+    image: ghcr.io/devibuilds/cloudify-web:latest
+    container_name: cloudify-web
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NODE_ENV=production
+      - NEXT_PUBLIC_CONVEX_URL=https://convex.projectinworks.com
+      - INFRA_AGENT_URL=http://cloudify-api:4000
+      - INFRA_AGENT_SECRET=${INFRA_AGENT_SECRET}
+    depends_on:
+      cloudify-convex:
+        condition: service_healthy
+
+  cloudify-api:
+    image: ghcr.io/devibuilds/cloudify-api:latest
+    container_name: cloudify-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - CLOUDIFY_CONFIG_PATH=/app/cloudify.config.yml
+      - INFRA_AGENT_SECRET=${INFRA_AGENT_SECRET}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+      - NPM_URL=http://host.docker.internal:81
+      - NPM_EMAIL=${NPM_EMAIL}
+      - NPM_PASSWORD=${NPM_PASSWORD}
+      - SERVER_IP=146.235.212.232
+      - BASE_DOMAIN=devhomelab.org
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      cloudify-convex:
+        condition: service_healthy
 
 volumes:
   cloudify_pgdata:

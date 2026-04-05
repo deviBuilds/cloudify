@@ -86,11 +86,6 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build all packages
-        run: npx turbo build --force
-        env:
-          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -98,47 +93,42 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy shared packages
+      - name: Write environment file to VPS
         run: |
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            packages/shared/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/shared/dist/
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            packages/domain-manager/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/domain-manager/dist/
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            packages/docker-manager/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/docker-manager/dist/
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cat > /opt/cloudify/.env << 'ENVEOF'
+          INFRA_AGENT_SECRET=${{ secrets.INFRA_AGENT_SECRET }}
+          CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID=${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NPM_EMAIL=${{ secrets.NPM_EMAIL }}
+          NPM_PASSWORD=${{ secrets.NPM_PASSWORD }}
+          CLOUDIFY_DB_PASSWORD=${{ secrets.CLOUDIFY_DB_PASSWORD }}
+          JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }}
+          JWKS=${{ secrets.JWKS }}
+          ENVEOF
+          chmod 600 /opt/cloudify/.env"
 
-      - name: Deploy API
+      - name: Sync compose file and config
         run: |
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            apps/api/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/api/dist/
+          scp -i ~/.ssh/deploy_key \
+            docker/docker-compose.cloudify.yml \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/docker/docker-compose.cloudify.yml
+          scp -i ~/.ssh/deploy_key \
+            cloudify.config.yml \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/cloudify.config.yml
 
-      - name: Deploy Web
+      - name: Pull and restart containers
         run: |
-          rsync -azP --delete -e "ssh -i ~/.ssh/deploy_key" \
-            apps/web/.next/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/web/.next/
-
-      - name: Deploy Convex functions
-        run: |
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            apps/convex/convex/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/convex/convex/
-
-      - name: Deploy config
-        run: |
-          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
-            cloudify.config.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/cloudify.config.yml
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /opt/cloudify/app/docker && \
+             docker compose --env-file /opt/cloudify/.env -f docker-compose.cloudify.yml pull cloudify-web cloudify-api && \
+             docker compose --env-file /opt/cloudify/.env -f docker-compose.cloudify.yml up -d cloudify-web cloudify-api"
 
       - name: Deploy Convex schema
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
-             cd /opt/cloudify/app/apps/convex && \
-             npx convex deploy --url http://localhost:3213 --admin-key '${{ secrets.CONVEX_ADMIN_KEY }}'"
-
-      - name: Restart services
-        run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
-             cd /opt/cloudify/app && pm2 restart ecosystem.config.cjs && pm2 save"
+          cd apps/convex && npx convex deploy \
+            --url https://convex.projectinworks.com \
+            --admin-key '${{ secrets.CONVEX_ADMIN_KEY }}'
 
       - name: Health check
         run: |
