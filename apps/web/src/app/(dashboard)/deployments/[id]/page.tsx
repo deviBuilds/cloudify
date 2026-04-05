@@ -40,6 +40,7 @@ import {
   MemoryStick,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DeleteDialog } from "@/components/deployments/delete-dialog";
 import { CpuChart } from "@/components/metrics/cpu-chart";
 import { MemoryChart } from "@/components/metrics/memory-chart";
@@ -81,6 +82,7 @@ export default function DeploymentDetailPage({
   const [copied, setCopied] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
   const [metricsLoaded, setMetricsLoaded] = useState(false);
   const [followMode, setFollowMode] = useState(false);
@@ -242,7 +244,7 @@ export default function DeploymentDetailPage({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" render={<Link href="/deployments" />}>
+        <Button variant="ghost" size="icon" render={<Link href={deployment.projectId ? `/projects/${deployment.projectId}` : "/deployments"} />}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -856,6 +858,7 @@ export default function DeploymentDetailPage({
         onOpenChange={setDeleteOpen}
         deploymentId={deploymentId}
         deploymentName={deployment.name}
+        onDeleted={() => router.push(deployment.projectId ? `/projects/${deployment.projectId}` : "/deployments")}
       />
     </div>
   );

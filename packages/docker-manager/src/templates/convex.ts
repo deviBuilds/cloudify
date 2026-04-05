@@ -1,5 +1,6 @@
 export interface ConvexComposeOptions {
   name: string;
+  projectName: string;
   ports: {
     postgres: number;
     backend: number;
@@ -20,7 +21,8 @@ export interface ConvexComposeOptions {
 export function generateConvexComposeConfig(
   opts: ConvexComposeOptions
 ): Record<string, unknown> {
-  const { name, ports, baseDomain, scheme = "https" } = opts;
+  const { name, projectName, ports, baseDomain, scheme = "https" } = opts;
+  const prefix = `${name}-${projectName}`;
 
   const pgUser = `${name}-postgres-db`;
   const pgPassword = `${name}-pg-password`;
@@ -30,7 +32,7 @@ export function generateConvexComposeConfig(
     services: {
       postgres: {
         image: "postgres:16-alpine",
-        container_name: `${name}-postgres-db`,
+        container_name: `${prefix}-postgres-db`,
         environment: {
           POSTGRES_USER: pgUser,
           POSTGRES_PASSWORD: pgPassword,
@@ -48,18 +50,18 @@ export function generateConvexComposeConfig(
           retries: 10,
         },
         restart: "unless-stopped",
-        volumes: [`${name}_pgdata:/var/lib/postgresql/data`],
+        volumes: [`${prefix}_pgdata:/var/lib/postgresql/data`],
       },
       backend: {
         image: "ghcr.io/get-convex/convex-backend:latest",
-        container_name: `${name}-convex-backend`,
+        container_name: `${prefix}-convex-backend`,
         depends_on: {
           postgres: {
             condition: "service_healthy",
           },
         },
         environment: {
-          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${name}-postgres-db:${ports.postgres}`,
+          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${prefix}-postgres-db:${ports.postgres}`,
           CONVEX_CLOUD_ORIGIN: `${scheme}://${name}-convex-backend.${baseDomain}`,
           CONVEX_SITE_ORIGIN: `${scheme}://${name}-convex-actions.${baseDomain}`,
           DO_NOT_REQUIRE_SSL: "true",
@@ -74,11 +76,11 @@ export function generateConvexComposeConfig(
           start_period: "15s",
         },
         restart: "unless-stopped",
-        volumes: [`${name}_convex_data:/convex/data`],
+        volumes: [`${prefix}_convex_data:/convex/data`],
       },
       dashboard: {
         image: "ghcr.io/get-convex/convex-dashboard:latest",
-        container_name: `${name}-convex-dashboard`,
+        container_name: `${prefix}-convex-dashboard`,
         depends_on: {
           backend: {
             condition: "service_healthy",
@@ -92,8 +94,8 @@ export function generateConvexComposeConfig(
       },
     },
     volumes: {
-      [`${name}_pgdata`]: {},
-      [`${name}_convex_data`]: {},
+      [`${prefix}_pgdata`]: {},
+      [`${prefix}_convex_data`]: {},
     },
   };
 }

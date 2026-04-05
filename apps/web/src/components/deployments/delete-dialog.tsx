@@ -22,6 +22,7 @@ interface DeleteDialogProps {
   onOpenChange: (open: boolean) => void;
   deploymentId: Id<"deployments">;
   deploymentName: string;
+  onDeleted?: () => void;
 }
 
 export function DeleteDialog({
@@ -29,6 +30,7 @@ export function DeleteDialog({
   onOpenChange,
   deploymentId,
   deploymentName,
+  onDeleted,
 }: DeleteDialogProps) {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -42,6 +44,7 @@ export function DeleteDialog({
     try {
       await deleteAction({ id: deploymentId });
       onOpenChange(false);
+      onDeleted?.();
     } catch (err) {
       console.error("Failed to delete deployment:", err);
     } finally {

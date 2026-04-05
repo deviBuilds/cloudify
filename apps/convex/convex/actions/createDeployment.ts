@@ -7,12 +7,14 @@ const DEPLOYMENT_DIR = "/opt/cloudify/deployments";
 
 function generateConvexComposeConfig(opts: {
   name: string;
+  projectName: string;
   ports: { postgres: number; backend: number; site: number; dashboard: number };
   serverIp: string;
   baseDomain: string;
   scheme?: string;
 }): Record<string, unknown> {
-  const { name, ports, baseDomain, scheme = "https" } = opts;
+  const { name, projectName, ports, baseDomain, scheme = "https" } = opts;
+  const prefix = `${name}-${projectName}`;
   const pgUser = `${name}-postgres-db`;
   const pgPassword = `${name}-pg-password`;
   const pgDb = "convex_self_hosted";
@@ -21,7 +23,7 @@ function generateConvexComposeConfig(opts: {
     services: {
       postgres: {
         image: "postgres:16-alpine",
-        container_name: `${name}-postgres-db`,
+        container_name: `${prefix}-postgres-db`,
         environment: {
           POSTGRES_USER: pgUser,
           POSTGRES_PASSWORD: pgPassword,
@@ -36,14 +38,14 @@ function generateConvexComposeConfig(opts: {
           retries: 10,
         },
         restart: "unless-stopped",
-        volumes: [`${name}_pgdata:/var/lib/postgresql/data`],
+        volumes: [`${prefix}_pgdata:/var/lib/postgresql/data`],
       },
       backend: {
         image: "ghcr.io/get-convex/convex-backend:latest",
-        container_name: `${name}-convex-backend`,
+        container_name: `${prefix}-convex-backend`,
         depends_on: { postgres: { condition: "service_healthy" } },
         environment: {
-          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${name}-postgres-db:${ports.postgres}`,
+          POSTGRES_URL: `postgresql://${pgUser}:${pgPassword}@${prefix}-postgres-db:${ports.postgres}`,
           CONVEX_CLOUD_ORIGIN: `${scheme}://${name}-convex-backend.${baseDomain}`,
           CONVEX_SITE_ORIGIN: `${scheme}://${name}-convex-actions.${baseDomain}`,
           DO_NOT_REQUIRE_SSL: "true",
@@ -55,11 +57,11 @@ function generateConvexComposeConfig(opts: {
           start_period: "15s",
         },
         restart: "unless-stopped",
-        volumes: [`${name}_convex_data:/convex/data`],
+        volumes: [`${prefix}_convex_data:/convex/data`],
       },
       dashboard: {
         image: "ghcr.io/get-convex/convex-dashboard:latest",
-        container_name: `${name}-convex-dashboard`,
+        container_name: `${prefix}-convex-dashboard`,
         depends_on: { backend: { condition: "service_healthy" } },
         environment: {
           NEXT_PUBLIC_DEPLOYMENT_URL: `${scheme}://${name}-convex-backend.${baseDomain}`,
@@ -69,8 +71,8 @@ function generateConvexComposeConfig(opts: {
       },
     },
     volumes: {
-      [`${name}_pgdata`]: {},
-      [`${name}_convex_data`]: {},
+      [`${prefix}_pgdata`]: {},
+      [`${prefix}_convex_data`]: {},
     },
   };
 }
@@ -143,7 +145,7 @@ export const createDeployment = action({
       serviceType,
       projectId,
       status: "creating",
-      containerPrefix: name,
+      containerPrefix: `${name}-${project.name}`,
       config: {},
       portMappings: {},
     });
@@ -182,6 +184,7 @@ export const createDeployment = action({
       // Step 5: Generate compose config
       const composeConfig = generateConvexComposeConfig({
         name,
+        projectName: project.name,
         ports: portMappings,
         serverIp,
         baseDomain,
@@ -198,14 +201,15 @@ export const createDeployment = action({
       composeStarted = true;
 
       // Step 8: Wait for health (60s timeout, 5s interval)
-      const backendContainer = `${name}-convex-backend`;
+      const containerPrefix = `${name}-${project.name}`;
+      const backendContainer = `${containerPrefix}-convex-backend`;
       let healthy = false;
       for (let attempt = 0; attempt < 12; attempt++) {
         await sleep(5000);
         try {
           const containers = (await infraFetch(
             "GET",
-            `/infra/containers?prefix=${name}`
+            `/infra/containers?prefix=${containerPrefix}`
           )) as { name: string; state: string }[];
           const backend = containers.find((c) => c.name === backendContainer);
           if (backend && backend.state === "running") {
