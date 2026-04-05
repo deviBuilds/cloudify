@@ -28,6 +28,7 @@ RUN bun run --filter @cloudify/shared build && \
 
 # --- Prod ---
 FROM node:24-alpine AS prod
+RUN apk add --no-cache docker-cli docker-cli-compose
 WORKDIR /app
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
