@@ -1,6 +1,7 @@
 # --- Base ---
-FROM oven/bun:1 AS base
+FROM node:24-alpine AS base
 WORKDIR /app
+RUN npm install -g bun
 
 # --- Dependencies ---
 FROM base AS deps
@@ -9,7 +10,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 COPY packages/docker-manager/package.json packages/docker-manager/
 COPY packages/domain-manager/package.json packages/domain-manager/
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # --- Dev ---
 FROM deps AS dev
@@ -19,6 +20,7 @@ CMD ["bun", "run", "--filter", "@cloudify/api", "dev"]
 # --- Build ---
 FROM deps AS builder
 COPY . .
+ENV PATH="/app/node_modules/.bin:$PATH"
 RUN bun run --filter @cloudify/shared build && \
     bun run --filter @cloudify/docker-manager build && \
     bun run --filter @cloudify/domain-manager build && \

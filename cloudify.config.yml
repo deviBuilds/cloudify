@@ -1,59 +1,62 @@
+# Cloudify Configuration
+# All secrets (API tokens, passwords) should be set via environment variables, not here.
+
 app:
-  name: "Cloudify"
-  description: "Deployment Manager"
+  name: "Cloudify"                        # Platform display name
+  description: "Deployment Manager"       # Shown in UI header
   version: "1.0.0"
 
 server:
-  host: "0.0.0.0"
-  webPort: 3000
-  apiPort: 4000
-  serverIp: "146.235.212.232"
+  host: "0.0.0.0"                         # Bind address for web and API servers
+  webPort: 3000                           # Next.js web UI port
+  apiPort: 4000                           # Express infra agent port
+  serverIp: "146.235.212.232"             # Public IP of the host (used for DNS A records)
 
 domain:
-  baseDomain: "devhomelab.org"
-  wildcardFallback: true
-  scheme: "https"
+  baseDomain: "devhomelab.org"            # Base domain for deployment subdomains
+  wildcardFallback: true                  # Keep *.baseDomain as DNS fallback
+  scheme: "https"                         # http or https — https requires SSL via NPM
 
 cloudflare:
-  apiToken: ""
-  zoneId: ""
-  proxied: false
-  ttl: 1
+  apiToken: ""                            # Override via CLOUDFLARE_API_TOKEN env var
+  zoneId: ""                              # Override via CLOUDFLARE_ZONE_ID env var
+  proxied: false                          # true = orange cloud (DDoS protection), false = DNS-only
+  ttl: 1                                  # 1 = automatic TTL (recommended)
 
 nginxProxyManager:
-  url: "http://localhost:81"
-  email: ""
-  password: ""
-  wildcardCertDomain: "devhomelab.org"
-  backendAdvancedConfig: |
+  url: "http://localhost:81"              # NPM API endpoint (default port 81)
+  email: ""                               # Override via NPM_EMAIL env var
+  password: ""                            # Override via NPM_PASSWORD env var
+  wildcardCertDomain: "devhomelab.org"    # Wildcard SSL cert domain in NPM
+  backendAdvancedConfig: |                # Injected into every Convex backend proxy host
     proxy_read_timeout 86400;
     proxy_buffering off;
 
 convex:
-  url: ""
-  deployKey: ""
+  url: ""                                 # Override via NEXT_PUBLIC_CONVEX_URL env var
+  deployKey: ""                           # Override via CONVEX_DEPLOY_KEY env var
 
 ports:
-  rangeStart: 10210
-  rangeEnd: 10999
-  reservedPorts: [80, 443, 3000, 4000, 5432, 6791, 8080]
+  rangeStart: 10210                       # Start of auto-assignable port range
+  rangeEnd: 10999                         # End of port range (supports ~197 deployments at 4 ports each)
+  reservedPorts: [80, 443, 3000, 4000, 5432, 6791, 8080]  # Never auto-assign these
 
 services:
   convex:
-    enabled: true
+    enabled: true                         # Convex deployment type available in UI
     images:
       backend: "ghcr.io/get-convex/convex-backend:latest"
       dashboard: "ghcr.io/get-convex/convex-dashboard:latest"
       postgres: "postgres:16-alpine"
-    subdomainPattern:
-      backend: "{name}-convex-backend"
-      site: "{name}-convex-actions"
-      dashboard: "{name}-convex-dashboard"
+    subdomainPattern:                     # {name} is replaced with deployment name
+      backend: "{name}-convex-backend"    # WebSocket-enabled Convex API
+      site: "{name}-convex-actions"       # HTTP actions endpoint
+      dashboard: "{name}-convex-dashboard" # Convex dashboard UI
   postgres:
-    enabled: false
+    enabled: false                        # Phase 2 — not yet implemented
   spacetimedb:
-    enabled: false
+    enabled: false                        # Phase 3 — not yet implemented
 
 branding:
-  primaryColor: "#6366f1"
-  logo: ""
+  primaryColor: "#6366f1"                 # Accent color (indigo-500)
+  logo: ""                                # Path to custom logo image

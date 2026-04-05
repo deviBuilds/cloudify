@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { DeleteDialog } from "@/components/deployments/delete-dialog";
+import { CpuChart } from "@/components/metrics/cpu-chart";
+import { MemoryChart } from "@/components/metrics/memory-chart";
 
 interface ContainerInfo {
   id: string;
@@ -81,6 +83,10 @@ export default function DeploymentDetailPage({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [metricsLoaded, setMetricsLoaded] = useState(false);
+  const [followMode, setFollowMode] = useState(false);
+  const [logFilter, setLogFilter] = useState("");
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   const startAction = useAction(api.actions.lifecycleActions.start);
   const stopAction = useAction(api.actions.lifecycleActions.stop);
@@ -157,6 +163,43 @@ export default function DeploymentDetailPage({
     const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
   }, [activeTab, fetchMetrics]);
+
+  // Follow mode: SSE log streaming
+  useEffect(() => {
+    if (!followMode || !selectedContainer) return;
+
+    const es = new EventSource(
+      `/api/proxy/infra/containers/${selectedContainer}/logs/stream?tail=100`
+    );
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const line = JSON.parse(event.data);
+        setLogs((prev) => prev + line + "\n");
+        logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      } catch {
+        // non-JSON data, append raw
+        setLogs((prev) => prev + event.data + "\n");
+      }
+    };
+
+    es.onerror = () => {
+      // Reconnect is handled automatically by EventSource
+    };
+
+    return () => {
+      es.close();
+      eventSourceRef.current = null;
+    };
+  }, [followMode, selectedContainer]);
+
+  // Stop follow when switching away from logs tab
+  useEffect(() => {
+    if (activeTab !== "logs" && followMode) {
+      setFollowMode(false);
+    }
+  }, [activeTab, followMode]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -452,7 +495,11 @@ export default function DeploymentDetailPage({
             <select
               className="rounded border border-border bg-background px-3 py-1.5 text-sm text-foreground"
               value={selectedContainer}
-              onChange={(e) => setSelectedContainer(e.target.value)}
+              onChange={(e) => {
+                setSelectedContainer(e.target.value);
+                setFollowMode(false);
+                setLogs("");
+              }}
             >
               {containers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -460,19 +507,62 @@ export default function DeploymentDetailPage({
                 </option>
               ))}
             </select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchLogs(selectedContainer)}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Fetch Logs
-            </Button>
+            <div className="flex overflow-hidden rounded-md border border-border">
+              <button
+                onClick={() => {
+                  setFollowMode(false);
+                  fetchLogs(selectedContainer);
+                }}
+                className={`px-3 py-1.5 text-xs transition-colors ${!followMode ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Tail
+              </button>
+              <button
+                onClick={() => {
+                  setLogs("");
+                  setFollowMode(true);
+                }}
+                className={`px-3 py-1.5 text-xs transition-colors ${followMode ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Follow
+              </button>
+            </div>
+            {!followMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchLogs(selectedContainer)}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            )}
+            {followMode && (
+              <Badge variant="default" size="sm" className="animate-pulse">
+                Live
+              </Badge>
+            )}
+            <div className="flex-1" />
+            <input
+              type="text"
+              placeholder="Filter logs..."
+              value={logFilter}
+              onChange={(e) => setLogFilter(e.target.value)}
+              className="h-8 w-48 rounded-md border border-border bg-transparent px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            />
           </div>
           <Card>
             <CardContent className="pt-6">
-              <pre className="max-h-96 overflow-auto rounded-md bg-card p-4 font-mono text-xs whitespace-pre-wrap ring-1 ring-foreground/10">
-                {logs || "Click 'Fetch Logs' to load container logs."}
+              <pre className="max-h-[500px] overflow-auto rounded-md bg-card p-4 font-mono text-xs whitespace-pre-wrap ring-1 ring-foreground/10">
+                {(() => {
+                  const content = logs || (followMode ? "Connecting to log stream..." : "Select a mode and container to view logs.");
+                  if (!logFilter) return content;
+                  return content
+                    .split("\n")
+                    .filter((line) => line.toLowerCase().includes(logFilter.toLowerCase()))
+                    .join("\n") || "No lines match filter.";
+                })()}
+                <div ref={logEndRef} />
               </pre>
             </CardContent>
           </Card>
@@ -487,99 +577,131 @@ export default function DeploymentDetailPage({
             </Button>
           </div>
           {!metricsLoaded ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <Skeleton className="h-4 w-32" />
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-4 rounded" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex justify-between">
-                          <Skeleton className="h-3 w-8" />
-                          <Skeleton className="h-3 w-10" />
-                        </div>
-                        <Skeleton className="h-2 w-full rounded-full" />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-4 rounded" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex justify-between">
-                          <Skeleton className="h-3 w-12" />
-                          <Skeleton className="h-3 w-20" />
-                        </div>
-                        <Skeleton className="h-2 w-full rounded-full" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : metrics.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {metrics.map((m) => {
-                const memPercent =
-                  m.memLimit > 0
-                    ? Math.round((m.memUsage / m.memLimit) * 100)
-                    : 0;
-                const memMB = Math.round(m.memUsage / 1024 / 1024);
-                const memLimitMB = Math.round(m.memLimit / 1024 / 1024);
-                return (
-                  <Card key={m.id}>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                  <Card key={i}>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-mono">
-                        {m.name}
-                      </CardTitle>
+                      <Skeleton className="h-4 w-32" />
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <Cpu className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex-1">
-                          <div className="flex justify-between text-xs">
-                            <span>CPU</span>
-                            <span>{m.cpuPercent.toFixed(1)}%</span>
+                        <Skeleton className="h-4 w-4 rounded" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex justify-between">
+                            <Skeleton className="h-3 w-8" />
+                            <Skeleton className="h-3 w-10" />
                           </div>
-                          <div className="mt-1 h-2 rounded-full bg-muted">
-                            <div
-                              className="h-2 rounded-full bg-primary"
-                              style={{
-                                width: `${Math.min(m.cpuPercent, 100)}%`,
-                              }}
-                            />
-                          </div>
+                          <Skeleton className="h-2 w-full rounded-full" />
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex-1">
-                          <div className="flex justify-between text-xs">
-                            <span>Memory</span>
-                            <span>
-                              {memMB} / {memLimitMB} MB ({memPercent}%)
-                            </span>
+                        <Skeleton className="h-4 w-4 rounded" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex justify-between">
+                            <Skeleton className="h-3 w-12" />
+                            <Skeleton className="h-3 w-20" />
                           </div>
-                          <div className="mt-1 h-2 rounded-full bg-muted">
-                            <div
-                              className="h-2 rounded-full bg-primary"
-                              style={{
-                                width: `${Math.min(memPercent, 100)}%`,
-                              }}
-                            />
-                          </div>
+                          <Skeleton className="h-2 w-full rounded-full" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                );
-              })}
+                ))}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[...Array(2)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+                    <CardContent><Skeleton className="h-[180px] w-full" /></CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : metrics.length > 0 ? (
+            <div className="space-y-4">
+              {/* Summary gauges */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {metrics.map((m) => {
+                  const memPercent =
+                    m.memLimit > 0
+                      ? Math.round((m.memUsage / m.memLimit) * 100)
+                      : 0;
+                  const memMB = Math.round(m.memUsage / 1024 / 1024);
+                  const memLimitMB = Math.round(m.memLimit / 1024 / 1024);
+                  return (
+                    <Card key={m.id}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-mono">
+                          {m.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <div className="flex justify-between text-xs">
+                              <span>CPU</span>
+                              <span>{m.cpuPercent.toFixed(1)}%</span>
+                            </div>
+                            <div className="mt-1 h-2 rounded-full bg-muted">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{
+                                  width: `${Math.min(m.cpuPercent, 100)}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <div className="flex justify-between text-xs">
+                              <span>Memory</span>
+                              <span>
+                                {memMB} / {memLimitMB} MB ({memPercent}%)
+                              </span>
+                            </div>
+                            <div className="mt-1 h-2 rounded-full bg-muted">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{
+                                  width: `${Math.min(memPercent, 100)}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {/* Trend charts per container */}
+              {metrics.map((m) => (
+                <div key={`charts-${m.id}`} className="space-y-2">
+                  <h4 className="text-xs font-medium text-muted-foreground font-mono">{m.name}</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <CpuChart
+                      title="CPU %"
+                      currentValue={m.cpuPercent}
+                      sourceId={m.id}
+                    />
+                    <MemoryChart
+                      title="Memory"
+                      usedBytes={m.memUsage}
+                      limitBytes={m.memLimit}
+                      sourceId={m.id}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                Click &quot;Refresh&quot; to load container metrics.
+                No container metrics available.
               </CardContent>
             </Card>
           )}

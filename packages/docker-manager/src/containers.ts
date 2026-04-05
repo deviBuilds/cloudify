@@ -73,6 +73,25 @@ export async function getContainerLogs(
 }
 
 /**
+ * Returns a live-following log stream for a container.
+ */
+export async function streamContainerLogs(
+  id: string,
+  opts?: { tail?: number; since?: number }
+): Promise<NodeJS.ReadableStream> {
+  const docker = getDockerClient();
+  const container = docker.getContainer(id);
+  const stream = await container.logs({
+    follow: true,
+    stdout: true,
+    stderr: true,
+    tail: opts?.tail ?? 100,
+    since: opts?.since,
+  });
+  return stream;
+}
+
+/**
  * Executes a command inside a running container and returns stdout as a string.
  */
 export async function execInContainer(

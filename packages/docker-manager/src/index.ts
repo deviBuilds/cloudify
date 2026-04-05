@@ -7,6 +7,7 @@ export {
   restartContainer,
   removeContainer,
   getContainerLogs,
+  streamContainerLogs,
   execInContainer,
 } from "./containers.js";
 

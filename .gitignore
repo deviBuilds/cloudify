@@ -6,4 +6,3 @@ node_modules/
 dist/
 .turbo/
 .next/
-bun.lock

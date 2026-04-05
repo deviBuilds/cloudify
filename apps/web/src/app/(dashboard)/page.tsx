@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import {
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { GaugeCard } from "@/components/metrics/gauge-card";
 import {
   Plus,
   Search,
@@ -21,17 +23,68 @@ import {
   StretchHorizontal,
   ChevronDown,
   ExternalLink,
+  Cpu,
+  MemoryStick,
+  HardDrive,
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+  Globe,
+  ScrollText,
 } from "lucide-react";
 import Link from "next/link";
 import { getStatusColor } from "@/lib/status";
+
+interface SystemMetrics {
+  cpu: { usage: number; cores: number };
+  memory: { total: number; used: number; free: number; usagePercent: number };
+  disk: { total: number; used: number; free: number; usagePercent: number };
+}
+
+const activityIcons: Record<string, typeof Plus> = {
+  create: Plus,
+  delete: Trash2,
+  start: Play,
+  stop: Square,
+  restart: RotateCcw,
+  dns_create: Globe,
+  dns_delete: Globe,
+};
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 type ViewMode = "grid" | "list";
 
 export default function DashboardPage() {
   const deployments = useQuery(api.deployments.list);
   const projects = useQuery(api.projects.list);
+  const auditLog = useQuery(api.auditLog.list, { limit: 5 });
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sysMetrics, setSysMetrics] = useState<SystemMetrics | null>(null);
+
+  const fetchSysMetrics = useCallback(async () => {
+    try {
+      const res = await fetch("/api/proxy/metrics/system");
+      if (res.ok) setSysMetrics(await res.json());
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => {
+    fetchSysMetrics();
+    const interval = setInterval(fetchSysMetrics, 10000);
+    return () => clearInterval(interval);
+  }, [fetchSysMetrics]);
 
   const total = deployments?.length ?? 0;
   const running =
@@ -126,6 +179,106 @@ export default function DashboardPage() {
                   <span className="tabular-nums font-medium">{row.value}</span>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* System Health */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-medium">System Health</CardTitle>
+              <Badge variant="outline" size="sm">
+                {sysMetrics ? "Live" : "..."}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {sysMetrics ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Cpu className="h-3.5 w-3.5" /> CPU
+                    </span>
+                    <span className="tabular-nums font-medium">{Math.round(sysMetrics.cpu.usage)}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted">
+                    <div className="h-1.5 rounded-full bg-foreground transition-all" style={{ width: `${Math.min(sysMetrics.cpu.usage, 100)}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <MemoryStick className="h-3.5 w-3.5" /> Memory
+                    </span>
+                    <span className="tabular-nums font-medium">{Math.round(sysMetrics.memory.usagePercent)}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted">
+                    <div className="h-1.5 rounded-full bg-foreground transition-all" style={{ width: `${Math.min(sysMetrics.memory.usagePercent, 100)}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <HardDrive className="h-3.5 w-3.5" /> Disk
+                    </span>
+                    <span className="tabular-nums font-medium">{Math.round(sysMetrics.disk.usagePercent)}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted">
+                    <div className="h-1.5 rounded-full bg-foreground transition-all" style={{ width: `${Math.min(sysMetrics.disk.usagePercent, 100)}%` }} />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-8" />
+                      </div>
+                      <Skeleton className="h-1.5 w-full rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!auditLog ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-6 w-6 rounded-full" />
+                      <div className="flex-1 space-y-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : auditLog.length > 0 ? (
+                <div className="space-y-3">
+                  {auditLog.map((entry) => {
+                    const Icon = activityIcons[entry.action] ?? ScrollText;
+                    return (
+                      <div key={entry._id} className="flex items-center gap-3">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted">
+                          <Icon className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-xs font-medium">
+                            {entry.action} {entry.resourceType}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {timeAgo(entry._creationTime)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">No activity yet</p>
+              )}
             </CardContent>
           </Card>
         </div>

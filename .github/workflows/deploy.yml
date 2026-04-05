@@ -1,0 +1,146 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/devibuilds/cloudify
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - name: Set image tag
+        id: meta
+        run: echo "version=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-web:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}-web:latest
+          build-args: |
+            NEXT_PUBLIC_CONVEX_URL=${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          target: prod
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-api:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}-api:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build all packages
+        run: npx turbo build --force
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy shared packages
+        run: |
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            packages/shared/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/shared/dist/
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            packages/domain-manager/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/domain-manager/dist/
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            packages/docker-manager/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/packages/docker-manager/dist/
+
+      - name: Deploy API
+        run: |
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            apps/api/dist/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/api/dist/
+
+      - name: Deploy Web
+        run: |
+          rsync -azP --delete -e "ssh -i ~/.ssh/deploy_key" \
+            apps/web/.next/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/web/.next/
+
+      - name: Deploy Convex functions
+        run: |
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            apps/convex/convex/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/apps/convex/convex/
+
+      - name: Deploy config
+        run: |
+          rsync -azP -e "ssh -i ~/.ssh/deploy_key" \
+            cloudify.config.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cloudify/app/cloudify.config.yml
+
+      - name: Deploy Convex schema
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
+             cd /opt/cloudify/app/apps/convex && \
+             npx convex deploy --url http://localhost:3213 --admin-key '${{ secrets.CONVEX_ADMIN_KEY }}'"
+
+      - name: Restart services
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
+             cd /opt/cloudify/app && pm2 restart ecosystem.config.cjs && pm2 save"
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -sf --max-time 10 https://projectinworks.com/ > /dev/null && echo "Health check passed" || echo "Health check failed (site may still be starting)"

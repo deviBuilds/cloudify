@@ -21,6 +21,8 @@ import {
 import { useSort } from "@/lib/use-sort";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Cpu, HardDrive, MemoryStick, Clock, Container } from "lucide-react";
+import { CpuChart } from "@/components/metrics/cpu-chart";
+import { MemoryChart } from "@/components/metrics/memory-chart";
 
 interface SystemMetrics {
   cpu: { usage: number; cores: number };
@@ -158,6 +160,32 @@ export default function SystemPage() {
           </>
         )}
       </div>
+
+      {/* CPU + Memory trend charts */}
+      {metrics ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CpuChart
+            title="CPU Trend"
+            currentValue={metrics.cpu.usage}
+            sourceId="system-cpu"
+          />
+          <MemoryChart
+            title="Memory Trend"
+            usedBytes={metrics.memory.used}
+            limitBytes={metrics.memory.total}
+            sourceId="system-memory"
+          />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+              <CardContent><Skeleton className="h-[180px] w-full" /></CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Memory & Disk details */}
       {metrics ? (

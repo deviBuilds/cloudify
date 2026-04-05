@@ -33,6 +33,18 @@ async function proxyRequest(
       );
     }
 
+    // Stream SSE responses through instead of buffering
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      return new Response(res.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
     const data = await res.json();
     return NextResponse.json(data);
   } catch {
