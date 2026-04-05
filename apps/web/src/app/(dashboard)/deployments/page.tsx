@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,16 +15,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
 import { useSort } from "@/lib/use-sort";
-import { Plus, Container, ExternalLink, Search, ListFilter, ChevronDown } from "lucide-react";
+import { Plus, Container, ExternalLink, Search, ListFilter, ChevronDown, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ActionsDropdown } from "@/components/deployments/actions-dropdown";
 import { DeleteDialog } from "@/components/deployments/delete-dialog";
-import { getStatusColor } from "@/lib/status";
+import { getStatusColor, statusMap } from "@/lib/status";
+
+const SERVICE_TYPES = ["convex", "postgres", "spacetimedb"] as const;
 
 export default function DeploymentsPage() {
   const deployments = useQuery(api.deployments.list);
+  const projects = useQuery(api.projects.list);
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -35,12 +44,67 @@ export default function DeploymentsPage() {
     name: string;
   } | null>(null);
 
-  const filtered = deployments?.filter(
-    (d) =>
-      search === "" ||
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.serviceType.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter state
+  const [filterProjects, setFilterProjects] = useState<Set<string>>(new Set());
+  const [filterStatuses, setFilterStatuses] = useState<Set<string>>(new Set());
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
+
+  const activeFilterCount =
+    filterProjects.size + filterStatuses.size + filterTypes.size;
+
+  // Project lookup map
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects?.forEach((p) => map.set(p._id, p.name));
+    return map;
+  }, [projects]);
+
+  const toggleFilter = (
+    set: Set<string>,
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    value: string
+  ) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setFilterProjects(new Set());
+    setFilterStatuses(new Set());
+    setFilterTypes(new Set());
+  };
+
+  // Enrich deployments with projectName for sorting
+  const enriched = useMemo(() => {
+    return deployments?.map((d) => ({
+      ...d,
+      projectName: (d.projectId && projectMap.get(d.projectId)) ?? "",
+    }));
+  }, [deployments, projectMap]);
+
+  const filtered = enriched?.filter((d) => {
+    // Search filter
+    if (
+      search &&
+      !d.name.toLowerCase().includes(search.toLowerCase()) &&
+      !d.serviceType.toLowerCase().includes(search.toLowerCase())
+    )
+      return false;
+    // Project filter
+    if (filterProjects.size > 0 && (!d.projectId || !filterProjects.has(d.projectId)))
+      return false;
+    // Status filter
+    if (filterStatuses.size > 0 && !filterStatuses.has(d.status))
+      return false;
+    // Type filter
+    if (filterTypes.size > 0 && !filterTypes.has(d.serviceType))
+      return false;
+    return true;
+  });
 
   const { sorted, toggleSort, getSortDirection } = useSort(filtered);
 
@@ -58,14 +122,104 @@ export default function DeploymentsPage() {
             className="h-10 w-full rounded-md border border-border bg-transparent pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/20"
           />
         </div>
-        <Button variant="outline" size="icon" className="shrink-0">
-          <ListFilter className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="relative shrink-0">
+              <ListFilter className="h-4 w-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[10px] font-medium text-background">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Project</DropdownMenuLabel>
+              {projects?.map((p) => (
+                <DropdownMenuCheckboxItem
+                  key={p._id}
+                  checked={filterProjects.has(p._id)}
+                  onClick={() => toggleFilter(filterProjects, setFilterProjects, p._id)}
+                >
+                  {p.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {(!projects || projects.length === 0) && (
+                <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
+              )}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              {Object.entries(statusMap).map(([key, { label, color }]) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={filterStatuses.has(key)}
+                  onClick={() => toggleFilter(filterStatuses, setFilterStatuses, key)}
+                >
+                  <span className={`h-2 w-2 rounded-full ${color}`} />
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Type</DropdownMenuLabel>
+              {SERVICE_TYPES.map((type) => (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={filterTypes.has(type)}
+                  onClick={() => toggleFilter(filterTypes, setFilterTypes, type)}
+                >
+                  {type}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" className="shrink-0" render={<Link href="/deployments/new" />}>
           Add New...
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </div>
+
+      {/* Active filter pills */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {Array.from(filterProjects).map((id) => (
+            <Badge key={id} variant="secondary" size="sm" className="gap-1">
+              {projectMap.get(id) ?? "Unknown"}
+              <button onClick={() => toggleFilter(filterProjects, setFilterProjects, id)}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {Array.from(filterStatuses).map((s) => (
+            <Badge key={s} variant="secondary" size="sm" className="gap-1">
+              <span className={`h-1.5 w-1.5 rounded-full ${getStatusColor(s)}`} />
+              {statusMap[s]?.label ?? s}
+              <button onClick={() => toggleFilter(filterStatuses, setFilterStatuses, s)}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {Array.from(filterTypes).map((t) => (
+            <Badge key={t} variant="secondary" size="sm" className="gap-1">
+              {t}
+              <button onClick={() => toggleFilter(filterTypes, setFilterTypes, t)}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <button
+            onClick={clearFilters}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       {sorted && sorted.length > 0 ? (
         <Card className="overflow-hidden">
@@ -73,6 +227,7 @@ export default function DeploymentsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead sortable sortDirection={getSortDirection("name")} onSort={() => toggleSort("name")}>Name</TableHead>
+                <TableHead sortable sortDirection={getSortDirection("projectName")} onSort={() => toggleSort("projectName")}>Project</TableHead>
                 <TableHead sortable sortDirection={getSortDirection("serviceType")} onSort={() => toggleSort("serviceType")}>Type</TableHead>
                 <TableHead sortable sortDirection={getSortDirection("status")} onSort={() => toggleSort("status")}>Status</TableHead>
                 <TableHead>Domain</TableHead>
@@ -88,6 +243,19 @@ export default function DeploymentsPage() {
                   onClick={() => router.push(`/deployments/${d._id}`)}
                 >
                   <TableCell className="font-medium">{d.name}</TableCell>
+                  <TableCell>
+                    {d.projectId && projectMap.get(d.projectId) ? (
+                      <Link
+                        href={`/projects/${d.projectId}`}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {projectMap.get(d.projectId)}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" size="sm">
                       {d.serviceType}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   FolderKanban,
   Plus,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getStatusColor } from "@/lib/status";
+import { ProjectCard } from "@/components/projects/project-card";
 
 export default function ProjectsPage() {
   const projects = useQuery(api.projects.list);
@@ -73,106 +73,14 @@ export default function ProjectsPage() {
       {filteredProjects && filteredProjects.length > 0 ? (
         viewMode === "grid" ? (
           <ul className="m-0 grid grid-cols-[repeat(auto-fill,minmax(330px,1fr))] gap-4 p-0">
-            {filteredProjects.map((p) => {
-              const projectDeployments =
-                deployments?.filter((d) => d.projectId === p._id) ?? [];
-              const latest = projectDeployments[0];
-              const latestDomains = latest?.domainUrls as
-                | Record<string, string>
-                | undefined;
-
-              return (
-                <li key={p._id} className="list-none">
-                  <Link href={`/projects/${p._id}`} className="block">
-                    <div className="relative flex flex-col gap-3 rounded-lg border border-border p-4 transition-colors hover:border-[#444]">
-                      {/* Row 1: Avatar + Name + Domain + Menu */}
-                      <div className="flex flex-row items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500">
-                          <span className="text-xs font-bold text-white">
-                            {p.name.slice(0, 2).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="truncate text-sm font-medium text-foreground">
-                            {p.name}
-                          </span>
-                          {latestDomains?.dashboard ? (
-                            <span className="truncate text-sm text-muted-foreground">
-                              {latestDomains.dashboard.replace("https://", "")}
-                            </span>
-                          ) : (
-                            <span className="truncate text-sm text-muted-foreground">
-                              {p.domain}
-                            </span>
-                          )}
-                        </div>
-                        <span
-                          className={`h-2 w-2 shrink-0 rounded-full ${
-                            p.wildcardCertId ? "bg-green-500" : "bg-yellow-500"
-                          }`}
-                        />
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {/* Row 2: Deployment count pill */}
-                      <div className="flex h-5 items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1a1a1a] px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-foreground/10">
-                          <Container className="h-3 w-3" />
-                          {projectDeployments.length} deployment
-                          {projectDeployments.length !== 1 ? "s" : ""}
-                        </span>
-                        {p.isDefault && (
-                          <Badge variant="outline" size="sm">
-                            Default
-                          </Badge>
-                        )}
-                        {!p.wildcardCertId && (
-                          <Badge variant="warning" size="sm">
-                            No cert
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Row 3: Latest deployment info */}
-                      {latest ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="truncate text-sm font-medium text-foreground">
-                            {latest.name}
-                          </span>
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${getStatusColor(latest.status)}`}
-                            />
-                            <span className="capitalize">{latest.status}</span>
-                            <span>·</span>
-                            <span>
-                              {new Date(
-                                latest._creationTime
-                              ).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          No deployments yet
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+            {filteredProjects.map((p) => (
+              <ProjectCard
+                key={p._id}
+                project={p}
+                deployments={deployments}
+                showCertBadge
+              />
+            ))}
           </ul>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
