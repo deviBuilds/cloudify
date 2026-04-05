@@ -76,36 +76,24 @@ npx turbo dev
 
 - Ubuntu 22.04+ VPS
 - Docker + Docker Compose
-- Node.js 24 (via nvm)
-- PM2 (process manager)
 - Nginx Proxy Manager
 - Cloudflare DNS for your domain
 
-### Environment Variables
+### Secrets Management
 
-See `.env.example` for the full list. Key secrets:
+All secrets are managed centrally in **GitHub Secrets** (single source of truth). During every deploy, the workflow writes a fresh `.env` file to the VPS before running `docker compose up`. See `.env.example` for the full list.
 
-| Variable | Purpose |
-|----------|---------|
-| `CLOUDFLARE_API_TOKEN` | DNS record management |
-| `CLOUDFLARE_ZONE_ID` | Target DNS zone |
-| `NPM_EMAIL` / `NPM_PASSWORD` | Nginx Proxy Manager auth |
-| `INFRA_AGENT_SECRET` | Shared secret between Convex and infra agent |
-| `NEXT_PUBLIC_CONVEX_URL` | Convex backend URL for the frontend |
-| `CONVEX_DEPLOY_KEY` | Convex schema deployment key |
+To rotate a secret:
+1. `gh secret set SECRET_NAME --repo deviBuilds/cloudify`
+2. Push any commit or `gh workflow run deploy.yml` to trigger a deploy
+3. The new `.env` is written to VPS and containers pick up the new values
 
 ### Manual Deploy
 
 ```bash
-# Set required env vars
-export CONVEX_ADMIN_KEY="your-admin-key"
-export NEXT_PUBLIC_CONVEX_URL="https://convex.yourdomain.com"
-
-# Deploy everything
+# Ensure .env is populated with all secrets
+# Deploy everything (writes .env to VPS, pulls images, restarts containers, deploys Convex schema)
 ./scripts/deploy.sh
-
-# Skip build (use existing artifacts)
-./scripts/deploy.sh --skip-build
 
 # Skip Convex schema deploy
 ./scripts/deploy.sh --skip-convex
@@ -113,25 +101,39 @@ export NEXT_PUBLIC_CONVEX_URL="https://convex.yourdomain.com"
 
 ### Automated Deploy (CI/CD)
 
-Push to `main` triggers the GitHub Actions deploy workflow which:
+Push to `main` triggers two GitHub Actions workflows:
 
-1. Builds all packages
-2. Builds and pushes Docker images to `ghcr.io/devibuilds/cloudify-web` and `ghcr.io/devibuilds/cloudify-api`
-3. Rsyncs build artifacts to the VPS
-4. Deploys Convex functions
-5. Restarts PM2 services
-6. Runs a health check
+**CI** (`ci.yml`) — runs on PRs and pushes to main:
+1. Installs dependencies
+2. Builds all packages (`turbo build`)
+3. Runs typecheck
+
+**Deploy** (`deploy.yml`) — runs on pushes to main:
+1. Builds multi-arch Docker images (linux/amd64 + linux/arm64)
+2. Pushes images to `ghcr.io/devibuilds/cloudify-web` and `ghcr.io/devibuilds/cloudify-api`
+3. Writes `.env` to VPS from GitHub Secrets
+4. Syncs compose file and config to VPS
+5. Pulls latest images and restarts containers (`docker compose pull` + `up -d`)
+6. Deploys Convex schema directly from the runner against the public Convex URL
+7. Runs a health check
 
 #### Required GitHub Secrets
 
-| Secret | Value |
-|--------|-------|
-| `GH_PAT` | GitHub PAT with `write:packages` scope |
+| Secret | Purpose |
+|--------|---------|
+| `GH_PAT` | GitHub PAT with `write:packages` scope (ghcr.io push/pull) |
 | `SSH_PRIVATE_KEY` | VPS SSH private key |
 | `SSH_HOST` | VPS IP address |
 | `SSH_USER` | SSH username (e.g., `ubuntu`) |
 | `CONVEX_ADMIN_KEY` | Convex admin key for schema deploy |
 | `NEXT_PUBLIC_CONVEX_URL` | Convex URL for frontend build |
+| `INFRA_AGENT_SECRET` | Shared auth between Convex and infra agent |
+| `CLOUDFLARE_API_TOKEN` | DNS record management |
+| `CLOUDFLARE_ZONE_ID` | Target DNS zone |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account |
+| `NPM_EMAIL` / `NPM_PASSWORD` | Nginx Proxy Manager auth |
+| `CLOUDIFY_DB_PASSWORD` | Cloudify's Convex Postgres password |
+| `JWT_PRIVATE_KEY` / `JWKS` | Auth JWT signing keys |
 
 ## Project Structure
 
